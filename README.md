@@ -39,3 +39,9 @@ npm run check
 ## 隱私
 
 問題與結果只保存在目前瀏覽器的 localStorage，不會上傳到第三方伺服器。
+
+## Immersive v2.3
+- Main page fade-in arrival animation.
+- Step 03 to draw room uses fade-out then fade-in transition.
+- Revealed cards fly to a large spotlight stage and flip at readable size.
+- Result page now prioritizes plain-language overview, card-by-card meaning, actions and warnings; advanced rules are collapsed.

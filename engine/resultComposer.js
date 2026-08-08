@@ -5,6 +5,43 @@ import { interpretCard } from './interpreter.js';
 
 const joinNatural = (items) => items.length <= 1 ? (items[0] || '') : `${items.slice(0,-1).join('、')}與${items.at(-1)}`;
 
+const firstClause = (text='') => String(text).split(/[；。]/).map((v) => v.trim()).find(Boolean) || String(text).trim();
+
+function buildPlainCards(interpretations) {
+  return interpretations.map((item) => {
+    const key = item.keywords[0] || '當下重點';
+    const second = item.keywords[1] ? `、${item.keywords[1]}` : '';
+    const energy = item.orientation === 'upright'
+      ? '這股能量目前比較容易發揮，重點是把它用在現實行動上。'
+      : '這股能量目前較容易卡住、過度或失衡，先修正再推進會比較穩。';
+    return {
+      positionName: item.positionName,
+      cardName: item.cardName,
+      orientationLabel: item.orientationLabel,
+      headline: `${item.positionName}：先看「${key}」`,
+      meaning: `在「${item.positionName}」這個位置，先看「${key}${second}」。${firstClause(item.baseMeaning)}。${energy}`,
+      action: firstClause(item.advice || item.action),
+      watch: firstClause(item.warning),
+    };
+  });
+}
+
+function buildPlainOverview(draws, interpretations) {
+  const top = [...interpretations].sort((a,b) => b.weight-a.weight)[0] || interpretations[0];
+  const reversed = draws.filter((d) => d.orientation === 'reversed').length;
+  const direction = reversed === 0
+    ? '整體較順，現在最重要的是把已有的優勢真正做出來，不用急着追問結果。'
+    : reversed > draws.length / 2
+      ? '這次牌面較多阻力訊號。先處理卡點、資訊不足或界線問題，再向前推會更有效。'
+      : '這次牌面有機會，也有需要校正的地方。適合一邊前進，一邊用現實回饋確認方向。';
+  return {
+    title: top ? `先處理「${top.keywords[0]}」，答案會清楚很多。` : '先把問題拆細，再看下一步。',
+    text: top ? `整個牌陣最值得先看的，是「${top.positionName}」的${top.cardName}${top.orientationLabel}。它把焦點放在「${top.keywords.slice(0,2).join('、')}」。` : direction,
+    direction,
+    action: top ? firstClause(top.advice || top.action) : '先選一件你現在可以控制的小事開始。',
+  };
+}
+
 function analyzePairs(draws, interpretations, themeKey) {
   const notes = [];
   for (let i = 0; i < draws.length; i += 1) {
@@ -61,6 +98,8 @@ export function composeReading(reading, spread, draws) {
   if (!warnings.length) warnings.push(`目前沒有大量逆位集中，但仍要避免把順利解讀成保證；${interpretations[0].warning}`);
   const uncertainty = secureChoice(phraseTemplates.uncertainty);
   const summary = `${pattern} ${coreMessage} ${uncertainty}`;
+  const plainOverview = buildPlainOverview(draws, interpretations);
+  const plainCards = buildPlainCards(interpretations);
   return {
     id: globalThis.crypto.randomUUID ? globalThis.crypto.randomUUID() : Array.from(globalThis.crypto.getRandomValues(new Uint32Array(4)), n => n.toString(16).padStart(8,'0')).join('-'),
     createdAt: new Date().toISOString(),
@@ -71,6 +110,8 @@ export function composeReading(reading, spread, draws) {
     combinations,
     pattern,
     coreMessage,
+    plainOverview,
+    plainCards,
     adviceItems,
     warnings,
     summary

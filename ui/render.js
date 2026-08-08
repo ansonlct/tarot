@@ -17,6 +17,8 @@ function page(title, eyebrow, body, cls='') {
 }
 
 export function renderHome() {
+  document.body.classList.remove('home-transition-out');
+  document.body.classList.add('home-entering');
   document.title = 'Arcana Mirror｜規則式塔羅占卜';
   app.innerHTML = `
     <section class="hero home-hero">
@@ -36,11 +38,13 @@ export function renderHome() {
     event.preventDefault();
     if (startReading.dataset.transitioning === 'true') return;
     startReading.dataset.transitioning = 'true';
+    document.body.classList.remove('home-entering');
     document.body.classList.add('home-transition-out');
     window.setTimeout(() => {
       location.hash = '#/setup';
     }, 560);
   });
+  window.setTimeout(() => document.body.classList.remove('home-entering'), 900);
   app.focus({ preventScroll:true });
 }
 
@@ -166,9 +170,12 @@ export function renderSetup(query='') {
     document.querySelector('#wizardBack').addEventListener('click', ()=>transitionTo(1, -1));
     card.querySelectorAll('[data-spread]').forEach(btn => btn.addEventListener('click', ()=>{
       clearTimeout(spreadTimer);
+      const shell = document.querySelector('.wizard-shell');
+      if (shell?.classList.contains('to-reading')) return;
       draft.spreadId = btn.dataset.spread;
       card.querySelectorAll('[data-spread]').forEach(el=>el.classList.toggle('selected', el===btn));
       btn.classList.add('committed');
+      shell?.classList.add('to-reading');
       spreadTimer = window.setTimeout(()=>{
         const question = String(draft.question||'').trim();
         state.setup = {
@@ -178,7 +185,7 @@ export function renderSetup(query='') {
           spreadId: draft.spreadId
         };
         location.hash = '#/reading';
-      }, 520);
+      }, 680);
     }));
   }
 
@@ -216,13 +223,42 @@ function flyCardToSlot(source, target) {
   anim.onfinish = () => clone.remove();
 }
 
+
+function flyRevealToStage(source, target, draw) {
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  if (reduceMotion) return Promise.resolve();
+  const from = source.getBoundingClientRect();
+  const to = target.getBoundingClientRect();
+  const flight = document.createElement('div');
+  flight.className = 'reveal-flight';
+  flight.style.left = `${from.left}px`;
+  flight.style.top = `${from.top}px`;
+  flight.style.width = `${from.width}px`;
+  flight.style.height = `${from.height}px`;
+  flight.innerHTML = `<div class="reveal-flight-inner"><div class="reveal-flight-back"><span>✦</span></div><div class="reveal-flight-front"><img src="${draw.card.image}" alt="${escapeHtml(draw.card.zhName)}" class="${draw.orientation==='reversed'?'reversed':''}"></div></div>`;
+  document.body.appendChild(flight);
+  const dx = to.left - from.left;
+  const dy = to.top - from.top;
+  const scale = to.width / Math.max(from.width, 1);
+  const move = flight.animate([
+    { transform:'translate3d(0,0,0) scale(1)', filter:'blur(0)', opacity:1 },
+    { transform:`translate3d(${dx*.46}px,${dy*.42-28}px,0) scale(${1 + (scale-1)*.38})`, filter:'blur(0)', opacity:1, offset:.46 },
+    { transform:`translate3d(${dx}px,${dy}px,0) scale(${scale})`, filter:'blur(0)', opacity:1 }
+  ], { duration:880, easing:'cubic-bezier(.16,.82,.2,1)', fill:'forwards' });
+  window.setTimeout(() => flight.classList.add('is-flipped'), 245);
+  return new Promise((resolve) => {
+    move.onfinish = () => { flight.remove(); resolve(); };
+    move.oncancel = () => { flight.remove(); resolve(); };
+  });
+}
+
 export function renderReading() {
   if (!state.setup) { location.hash = '#/setup'; return; }
   const spread = spreadById[state.setup.spreadId];
   const theme = themes[state.setup.theme];
   document.title = '準備抽牌｜Arcana Mirror';
   app.innerHTML = `
-    <section class="manual-reading">
+    <section class="manual-reading reading-enter">
       <div class="reading-ambient ambient-a" aria-hidden="true"></div><div class="reading-ambient ambient-b" aria-hidden="true"></div>
       <div class="reading-header">
         <a class="wizard-back reading-back" href="#/setup?resume=spread"><span>←</span> 返回</a>
@@ -251,6 +287,11 @@ export function renderReading() {
         <p class="deck-note">每張牌都背面朝上。你點下哪一張，就會成為這次牌陣中的下一個位置。</p>
       </div>
 
+      <div class="reveal-focus-stage" id="revealFocusStage" hidden aria-live="polite">
+        <div class="reveal-stage-copy"><p class="eyebrow">THE REVEAL</p><h2 id="revealStageTitle">準備親手翻牌</h2><p id="revealStageMeta">按下方任何一張牌，它會在這裡放大翻開，讓你先看清楚牌面。</p><div class="reveal-keywords" id="revealKeywords"></div></div>
+        <div class="reveal-large-card" id="revealLargeCard" aria-hidden="true"><span>✦</span></div>
+      </div>
+
       <div class="chosen-area" id="chosenArea" hidden>
         <div class="chosen-heading"><p class="eyebrow">YOUR CHOSEN CARDS</p><h2>你選出的牌</h2><p id="chosenHint">先完成抽牌，再親手逐一翻開。</p></div>
         <div class="manual-slots cards-${spread.count}" id="manualSlots">
@@ -271,6 +312,11 @@ export function renderReading() {
   const zone = document.querySelector('#intuitionZone');
   const ribbon = document.querySelector('#deckRibbon');
   const chosenArea = document.querySelector('#chosenArea');
+  const revealStage = document.querySelector('#revealFocusStage');
+  const revealLargeCard = document.querySelector('#revealLargeCard');
+  const revealStageTitle = document.querySelector('#revealStageTitle');
+  const revealStageMeta = document.querySelector('#revealStageMeta');
+  const revealKeywords = document.querySelector('#revealKeywords');
   const slots = [...document.querySelectorAll('.manual-slot')];
   const counter = document.querySelector('#drawCounter');
   const instruction = document.querySelector('#drawInstruction');
@@ -285,6 +331,7 @@ export function renderReading() {
   let shuffleStarted = false;
   let spreadFocusStarted = false;
   let resultTransitionStarted = false;
+  let revealAnimating = false;
 
   function buildRibbon() {
     ribbon.innerHTML = deck.map((_, i) => {
@@ -330,12 +377,15 @@ export function renderReading() {
       readingRoot?.classList.add('spread-focused');
       chosenArea.classList.remove('spread-focus-zoom');
       chosenArea.classList.add('spread-focus-settled');
-      chosenHint.textContent = '現在由第一張開始，按下每張牌親手翻開。';
+      revealStage.hidden = false;
+      requestAnimationFrame(() => revealStage.classList.add('ready'));
+      window.setTimeout(() => revealStage.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block:'start' }), reduceMotion ? 0 : 80);
+      chosenHint.textContent = '現在按下每張牌親手翻開；牌面會飛到上方放大，讓你看清楚。';
       slots.forEach((s, i) => {
         const b = s.querySelector('.manual-slot-card');
         b.disabled = false;
         b.setAttribute('aria-label', `翻開第 ${i+1} 張牌：${spread.positions[i].name}`);
-        b.addEventListener('click', ()=>revealCard(i), { once:true });
+        b.addEventListener('click', ()=>revealCard(i));
       });
     }, reduceMotion ? 80 : 1050);
   }
@@ -368,17 +418,41 @@ export function renderReading() {
     }
   }
 
-  function revealCard(i) {
-    if (revealed.has(i) || selected.length < spread.count) return;
+  async function revealCard(i) {
+    if (revealed.has(i) || selected.length < spread.count || revealAnimating) return;
+    revealAnimating = true;
     const slot = slots[i];
     const btn = slot.querySelector('.manual-slot-card');
     const draw = selected[i];
-    btn.disabled = true;
+    const position = spread.positions[i];
+    slots.forEach((s) => { if (!s.classList.contains('revealed')) s.querySelector('.manual-slot-card').disabled = true; });
+
+    revealStage.hidden = false;
+    revealStage.classList.add('ready','is-revealing');
+    revealStageTitle.textContent = `第 ${i+1} 張 · ${position.name}`;
+    revealStageMeta.textContent = `${draw.card.zhName} · ${draw.orientation==='upright'?'正位':'逆位'}。先看牌面，再留意你第一個感受。`;
+    const keywords = draw.orientation === 'upright' ? draw.card.uprightKeywords : draw.card.reversedKeywords;
+    revealKeywords.innerHTML = keywords.slice(0,4).map((k)=>`<span>${escapeHtml(k)}</span>`).join('');
+    revealLargeCard.classList.remove('has-card');
+    revealLargeCard.innerHTML = '<span>✦</span>';
+    chosenHint.textContent = `正在翻開第 ${i+1} 張牌…`;
+
+    await flyRevealToStage(btn, revealLargeCard, draw);
+
+    revealLargeCard.innerHTML = `<img src="${draw.card.image}" alt="${escapeHtml(draw.card.zhName)}" class="${draw.orientation==='reversed'?'reversed':''}">`;
+    revealLargeCard.classList.add('has-card');
+    revealStage.classList.remove('is-revealing');
     btn.innerHTML = `<img src="${draw.card.image}" alt="${escapeHtml(draw.card.zhName)}" class="${draw.orientation==='reversed'?'reversed':''}">`;
     slot.classList.add('revealed');
     revealed.add(i);
+    revealAnimating = false;
+
     if (revealed.size < spread.count) {
-      chosenHint.textContent = `已翻開 ${revealed.size} / ${spread.count} 張。慢慢看，再翻下一張。`;
+      chosenHint.textContent = `已翻開 ${revealed.size} / ${spread.count} 張。看完上方大牌面後，再按下一張。`;
+      slots.forEach((s) => {
+        const b = s.querySelector('.manual-slot-card');
+        b.disabled = s.classList.contains('revealed');
+      });
     } else {
       chosenHint.textContent = '全部牌面已翻開。先感受整體，再進入文字解讀。';
       result = composeReading(state.setup, spread, selected);
@@ -386,9 +460,9 @@ export function renderReading() {
       saveReading(result);
       finish.hidden = false;
       requestAnimationFrame(()=>finish.classList.add('visible'));
-      window.setTimeout(()=>finish.scrollIntoView({behavior:'smooth', block:'center'}), 300);
     }
   }
+
 
   shuffleDeck.addEventListener('click', completeShuffle);
   shuffleCall.addEventListener('click', completeShuffle);
@@ -414,12 +488,40 @@ export function renderReading() {
   app.focus({ preventScroll:true });
 }
 
-function resultCard(item) {
-  return `<article class="result-card">
-    <div class="result-card-visual"><span class="position-tag">${escapeHtml(item.positionName)}</span><img src="${item.image}" alt="${escapeHtml(item.cardName)} ${item.orientationLabel}" class="${item.orientation==='reversed'?'reversed':''}"></div>
-    <div class="result-card-copy"><div class="card-title-line"><div><p>${escapeHtml(item.enName)}</p><h2>${escapeHtml(item.cardName)} <small>${item.orientationLabel}</small></h2></div><div class="keyword-row">${item.keywords.slice(0,4).map(k=>`<span>${escapeHtml(k)}</span>`).join('')}</div></div>
-      <p class="core-line">${escapeHtml(item.core)}</p>
-      <div class="interpret-grid"><div><h3>主題解讀</h3><p>${escapeHtml(item.baseMeaning)}</p></div><div><h3>牌陣位置</h3><p>${escapeHtml(item.positionSpecific)}</p></div><div><h3>心理／關係</h3><p>${escapeHtml(item.emotion)} ${escapeHtml(item.relationship)}</p></div><div><h3>發展方向</h3><p>${escapeHtml(item.timing)}</p></div></div>
+const shortClause = (text='') => String(text).split(/[；。]/).map((v)=>v.trim()).find(Boolean) || String(text).trim();
+
+function fallbackPlainCard(item) {
+  const key = item.keywords?.[0] || '當下重點';
+  const second = item.keywords?.[1] ? `、${item.keywords[1]}` : '';
+  return {
+    headline: `${item.positionName}：先看「${key}」`,
+    meaning: `在「${item.positionName}」這個位置，先看「${key}${second}」。${shortClause(item.baseMeaning)}。${item.orientation==='upright'?'這股能量目前比較容易發揮。':'這股能量目前較容易卡住或失衡，先修正會更穩。'}`,
+    action: shortClause(item.advice || item.action),
+    watch: shortClause(item.warning),
+  };
+}
+
+function fallbackPlainOverview(result) {
+  const top = [...result.interpretations].sort((a,b)=>b.weight-a.weight)[0] || result.interpretations[0];
+  const reversed = result.interpretations.filter((i)=>i.orientation==='reversed').length;
+  return {
+    title: top ? `先處理「${top.keywords[0]}」，答案會清楚很多。` : '先把問題拆細，再看下一步。',
+    text: top ? `整個牌陣最值得先看的，是「${top.positionName}」的${top.cardName}${top.orientationLabel}。它把焦點放在「${top.keywords.slice(0,2).join('、')}」。` : result.coreMessage,
+    direction: reversed > result.interpretations.length/2 ? '目前阻力較多，先修正卡點再推進。' : reversed ? '有機會亦有阻力，適合邊前進邊確認現實情況。' : '整體較順，把優勢落實成行動就好。',
+    action: top ? shortClause(top.advice || top.action) : '先做一件你現在可以控制的小事。',
+  };
+}
+
+function resultCard(item, plain) {
+  const p = plain || fallbackPlainCard(item);
+  return `<article class="simple-result-card">
+    <div class="simple-card-visual"><span class="position-tag">${escapeHtml(item.positionName)}</span><img src="${item.image}" alt="${escapeHtml(item.cardName)} ${item.orientationLabel}" class="${item.orientation==='reversed'?'reversed':''}"></div>
+    <div class="simple-card-copy">
+      <div class="simple-card-title"><p>${escapeHtml(item.enName)}</p><h2>${escapeHtml(item.cardName)} <small>${item.orientationLabel}</small></h2><div class="keyword-row">${item.keywords.slice(0,4).map(k=>`<span>${escapeHtml(k)}</span>`).join('')}</div></div>
+      <h3>${escapeHtml(p.headline)}</h3>
+      <div class="plain-reading-row"><span>這張牌在說什麼</span><p>${escapeHtml(p.meaning)}</p></div>
+      <div class="plain-reading-row action"><span>你可以怎樣做</span><p>${escapeHtml(p.action)}</p></div>
+      <div class="plain-reading-row watch"><span>要留意</span><p>${escapeHtml(p.watch)}</p></div>
     </div>
   </article>`;
 }
@@ -428,15 +530,39 @@ export function renderResult(id) {
   const result = (state.lastResult?.id===id ? state.lastResult : null) || getReading(id);
   if (!result) { page('找不到這次占卜', 'RESULT', `<div class="empty"><p>這筆紀錄可能已被刪除，或來自另一個瀏覽器。</p><a class="btn primary" href="#/setup">重新占卜</a></div>`); return; }
   const theme=themes[result.reading.theme]||themes.custom;
-  page('你的牌面', 'READING RESULT', `
+  const plain = result.plainOverview || fallbackPlainOverview(result);
+  const plainCards = result.plainCards || result.interpretations.map(fallbackPlainCard);
+  const simpleAdvice = result.adviceItems.slice(0,3).map(shortClause);
+  const simpleWarnings = result.warnings.slice(0,3).map(shortClause);
+  page('你的解讀', 'READING RESULT', `
     <section class="result-intro"><div><div class="reading-meta"><span>${theme.label}</span><span>${escapeHtml(result.reading.subtopic)}</span><span>${escapeHtml(result.spread.name)}</span></div><h2>「${escapeHtml(result.reading.question)}」</h2><p>${fmtDate(result.createdAt)}</p></div><a href="#/setup" class="btn ghost">再次占卜</a></section>
-    <section class="summary-hero"><p class="eyebrow">CORE MESSAGE</p><h2>核心訊息</h2><p>${escapeHtml(result.coreMessage)}</p><div class="pattern-note">${escapeHtml(result.pattern)}</div></section>
-    <section class="result-cards">${result.interpretations.map(resultCard).join('')}</section>
-    ${result.combinations.length?`<section class="result-section"><div class="section-heading"><p class="eyebrow">CARD RELATIONSHIPS</p><h2>多牌綜合解讀</h2></div><div class="combo-list">${result.combinations.slice(0,8).map(c=>`<article><span>${c.type==='special'?'特殊組合':'規則組合'}</span><h3>${escapeHtml(c.title)}</h3><p>${escapeHtml(c.text)}</p></article>`).join('')}</div></section>`:''}
-    <section class="action-grid"><article><p class="eyebrow">NEXT STEPS</p><h2>建議</h2>${result.adviceItems.map(v=>`<p>→ ${escapeHtml(v)}</p>`).join('')}</article><article><p class="eyebrow">WATCH FOR</p><h2>需要注意</h2>${result.warnings.map(v=>`<p>— ${escapeHtml(v)}</p>`).join('')}</article></section>
-    <section class="final-summary"><p class="eyebrow">SUMMARY</p><h2>最後總結</h2><p>${escapeHtml(result.summary)}</p><div class="disclaimer-box">塔羅占卜屬於娛樂及自我反思用途，結果並非科學預測，也不能保證未來一定會按照牌面發展。涉及醫療、法律、投資或重大人生決策時，應以專業意見及實際資訊作判斷。</div></section>
-  `,'result-page');
+
+    <section class="plain-overview">
+      <p class="eyebrow">先看這裡 · 30 秒看懂</p>
+      <h2>${escapeHtml(plain.title)}</h2>
+      <p class="plain-lead">${escapeHtml(plain.text)}</p>
+      <div class="plain-overview-grid"><div><small>整體方向</small><p>${escapeHtml(plain.direction)}</p></div><div><small>現在先做</small><p>${escapeHtml(plain.action)}</p></div></div>
+    </section>
+
+    <section class="simple-cards-section"><div class="section-heading"><p class="eyebrow">CARD BY CARD</p><h2>逐張看，就會清楚</h2><p>不用背牌義。只要看「這個位置代表甚麼 → 牌在提醒甚麼 → 你可以怎樣做」。</p></div><div class="simple-result-cards">${result.interpretations.map((item,i)=>resultCard(item,plainCards[i])).join('')}</div></section>
+
+    <section class="plain-next-steps">
+      <div><p class="eyebrow">NEXT STEPS</p><h2>接下來，可以先做</h2>${simpleAdvice.map(v=>`<p class="plain-check">✓ ${escapeHtml(v)}</p>`).join('')}</div>
+      <div><p class="eyebrow">WATCH FOR</p><h2>同時留意</h2>${simpleWarnings.map(v=>`<p class="plain-watch">— ${escapeHtml(v)}</p>`).join('')}</div>
+    </section>
+
+    <details class="advanced-reading">
+      <summary><span>想看更深入的牌義與多牌關係</span><small>進階內容，可選擇性閱讀 ＋</small></summary>
+      <div class="advanced-reading-body">
+        <div class="advanced-note"><h3>整體牌面規則</h3><p>${escapeHtml(result.pattern)}</p></div>
+        ${result.combinations.length?`<div class="combo-list">${result.combinations.slice(0,8).map(c=>`<article><span>${c.type==='special'?'特殊組合':'規則組合'}</span><h3>${escapeHtml(c.title)}</h3><p>${escapeHtml(c.text)}</p></article>`).join('')}</div>`:''}
+      </div>
+    </details>
+
+    <section class="final-summary simple-final"><p class="eyebrow">REMEMBER</p><h2>把牌當成鏡子，不是判決。</h2><p>牌面指出的是現在較值得留意的方向。真正會改變結果的，仍然是現實資訊、溝通方式，以及你之後的選擇。</p><div class="disclaimer-box">塔羅占卜屬於娛樂及自我反思用途，結果並非科學預測，也不能保證未來一定會按照牌面發展。涉及醫療、法律、投資或重大人生決策時，應以專業意見及實際資訊作判斷。</div></section>
+  `,'result-page simple-result-page');
 }
+
 
 export function renderGuide(filter='all') {
   const filters=[['all','全部 78 張'],['大阿爾克那','大阿爾克那'],['權杖','權杖'],['聖杯','聖杯'],['寶劍','寶劍'],['錢幣','錢幣']];
