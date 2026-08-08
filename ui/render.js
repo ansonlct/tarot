@@ -310,7 +310,6 @@ export function renderReading() {
     btn.classList.add('picked');
     window.setTimeout(()=>{
       slot.classList.add('filled');
-      slotButton.disabled = true;
       slotButton.setAttribute('aria-label', `${spread.positions[slotIndex].name}，已抽牌，等待翻牌`);
     }, 360);
     counter.textContent = selected.length;
@@ -319,14 +318,22 @@ export function renderReading() {
     } else {
       instruction.textContent = '抽牌完成。你選出的牌已經落在牌陣位置上。';
       ribbon.classList.add('selection-complete');
-      chosenHint.textContent = '現在由第一張開始，按下每張牌親手翻開。';
-      slots.forEach((s, i) => {
-        const b = s.querySelector('.manual-slot-card');
-        b.disabled = false;
-        b.setAttribute('aria-label', `翻開第 ${i+1} 張牌：${spread.positions[i].name}`);
-        b.addEventListener('click', ()=>revealCard(i), { once:true });
-      });
-      window.setTimeout(()=>chosenArea.scrollIntoView({behavior:'smooth', block:'center'}), 520);
+      chosenHint.textContent = '正在把最後一張牌放入牌陣…';
+
+      // Wait until the final fly-to-slot animation has settled before enabling
+      // reveal buttons. Previously the last card's delayed slot update ran after
+      // reveal mode was enabled and disabled that button again, so the final
+      // card could not be flipped.
+      window.setTimeout(()=>{
+        chosenHint.textContent = '現在由第一張開始，按下每張牌親手翻開。';
+        slots.forEach((s, i) => {
+          const b = s.querySelector('.manual-slot-card');
+          b.disabled = false;
+          b.setAttribute('aria-label', `翻開第 ${i+1} 張牌：${spread.positions[i].name}`);
+          b.addEventListener('click', ()=>revealCard(i), { once:true });
+        });
+        chosenArea.scrollIntoView({behavior:'smooth', block:'center'});
+      }, 560);
     }
   }
 
