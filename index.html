@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0910" />
+  <meta name="description" content="Arcana Mirror — 純規則式、非 AI 的 78 張塔羅牌占卜網站。" />
+  <title>Arcana Mirror｜規則式塔羅占卜</title>
+  <link rel="stylesheet" href="./styles/main.css" />
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="#/home" aria-label="Arcana Mirror 首頁"><span>✦</span> ARCANA MIRROR</a>
+    <nav class="nav" aria-label="主要導覽">
+      <a href="#/setup">開始占卜</a><a href="#/guide">塔羅牌指南</a><a href="#/history">紀錄</a>
+    </nav>
+    <button class="menu-btn" id="menuBtn" aria-label="開啟導覽">☰</button>
+  </header>
+  <div class="mobile-nav" id="mobileNav" hidden>
+    <a href="#/setup">開始占卜</a><a href="#/guide">塔羅牌指南</a><a href="#/history">占卜紀錄</a>
+  </div>
+  <main id="app" tabindex="-1"></main>
+  <footer>
+    <div><strong>Arcana Mirror</strong><p>以象徵系統整理思緒，不替你做決定。</p></div>
+    <p class="disclaimer">塔羅占卜屬於娛樂及自我反思用途，結果並非科學預測，也不能保證未來一定會按照牌面發展。涉及醫療、法律、投資或重大人生決策時，應以專業意見及實際資訊作判斷。</p>
+  </footer>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

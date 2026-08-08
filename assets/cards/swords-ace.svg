@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 700" role="img" aria-labelledby="t d">
+<title id="t">寶劍一 Ace of Swords</title><desc id="d">Arcana Mirror 本地塔羅牌圖像</desc>
+<defs><radialGradient id="g"><stop offset="0" stop-color="#2f2845"/><stop offset="1" stop-color="#0b0911"/></radialGradient><pattern id="p" width="42" height="42" patternUnits="userSpaceOnUse"><path d="M21 2 40 21 21 40 2 21Z" fill="none" stroke="#bda56b" stroke-opacity=".12"/></pattern></defs>
+<rect x="6" y="6" width="408" height="688" rx="24" fill="url(#g)" stroke="#c8ad70" stroke-width="5"/><rect x="22" y="22" width="376" height="656" rx="17" fill="url(#p)" stroke="#c8ad70" stroke-opacity=".55"/>
+<circle cx="210" cy="275" r="122" fill="none" stroke="#c8ad70" stroke-width="2"/><circle cx="210" cy="275" r="94" fill="none" stroke="#e7d7aa" stroke-opacity=".5"/><path d="M210 133 235 226 327 250 235 275 210 367 185 275 93 250 185 226Z" fill="#c8ad70" fill-opacity=".16" stroke="#d8c38e" stroke-width="2"/>
+<text x="210" y="292" text-anchor="middle" font-family="serif" font-size="92" fill="#eadbb5">◇</text>
+<text x="210" y="486" text-anchor="middle" font-family="serif" font-size="34" fill="#f4ead1">寶劍一</text><text x="210" y="526" text-anchor="middle" font-family="serif" font-size="20" fill="#c9b98d">Ace of Swords</text>
+<text x="210" y="625" text-anchor="middle" font-family="serif" font-size="17" letter-spacing="5" fill="#a8915c">ARCANA MIRROR</text></svg>
