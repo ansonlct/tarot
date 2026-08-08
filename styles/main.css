@@ -257,3 +257,81 @@ body.home-entering #app .hero-cards{animation:homeCardsArrive 1s cubic-bezier(.1
   .reveal-flight{display:none!important}
 }
 .reveal-focus-stage{scroll-margin-top:clamp(24px,8vh,90px)}
+
+/* --- Immersive refinement v2.4 ---------------------------------------- */
+/* 1) After shuffling, the full deck grows out of one compact pile instead of popping in. */
+.deck-scroll{position:relative}
+.deck-deal-origin{position:absolute;left:50%;bottom:38px;width:83px;height:138px;transform:translateX(-50%);z-index:180;pointer-events:none;opacity:0;filter:none}
+.deck-deal-origin i{position:absolute;inset:0;border:1px solid rgba(201,173,114,.76);border-radius:9px;background:radial-gradient(circle at 50% 45%,#211b2f,#0f0c15 67%);box-shadow:0 18px 35px rgba(0,0,0,.35);display:grid;place-items:center;color:var(--gold);font-style:normal;transform:none}
+.deck-deal-origin i:before{content:"";position:absolute;inset:8px;border:1px solid rgba(201,173,114,.31);border-radius:7px}
+.deck-deal-origin span{position:relative;z-index:2;font-size:23px}
+.deck-deal-origin i:nth-child(1){transform:translate(-3.6px,4px) rotate(-.9deg)}
+.deck-deal-origin i:nth-child(2){transform:translate(-1.8px,2px) rotate(-.45deg)}
+.deck-deal-origin i:nth-child(3){transform:translate(0,0)}
+.deck-deal-origin i:nth-child(4){transform:translate(1.8px,-2px) rotate(.45deg)}
+.deck-deal-origin i:nth-child(5){transform:translate(3.6px,-4px) rotate(.9deg)}
+.intuition-zone.dealing .deck-deal-origin{animation:dealOriginAppear 1.48s cubic-bezier(.2,.75,.2,1) both}
+.deck-ribbon.is-dealing{pointer-events:none}
+.deck-ribbon.is-dealing .intuition-card{animation:deckFanOut .82s cubic-bezier(.17,.82,.2,1) var(--fan-delay) both;will-change:transform,opacity,filter}
+.deck-ribbon.is-ready .intuition-card{animation:none}
+@keyframes dealOriginAppear{0%{opacity:0;transform:translateX(-50%) translateY(18px) scale(.92)}12%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}58%{opacity:1;transform:translateX(-50%) scale(1)}100%{opacity:0;transform:translateX(-50%) scale(.92);filter:blur(2px)}}
+@keyframes deckFanOut{
+  0%{opacity:.12;transform:translateX(var(--fan-shift)) translateY(24px) rotate(0deg) scale(.93);filter:blur(1.4px);box-shadow:0 12px 22px rgba(0,0,0,.25)}
+  20%{opacity:.72}
+  100%{opacity:1;transform:translateX(0) translateY(var(--lift)) rotate(var(--rot)) scale(1);filter:none;box-shadow:-8px 15px 25px rgba(0,0,0,.25)}
+}
+
+/* 2) Reserve/expand the reveal stage smoothly so the page never snaps when draw mode ends. */
+.reveal-focus-stage{
+  max-height:0!important;
+  min-height:0!important;
+  margin-top:0!important;
+  padding-top:0!important;
+  padding-bottom:0!important;
+  border-width:0!important;
+  overflow:hidden;
+  overflow-anchor:none;
+  opacity:0!important;
+  transform:translateY(12px) scale(.992)!important;
+  transition:max-height .72s cubic-bezier(.18,.82,.2,1),min-height .72s cubic-bezier(.18,.82,.2,1),margin .72s cubic-bezier(.18,.82,.2,1),padding .72s cubic-bezier(.18,.82,.2,1),border-width .2s ease,opacity .55s ease .12s,transform .62s cubic-bezier(.18,.82,.2,1)!important;
+  pointer-events:none;
+}
+.reveal-focus-stage.ready{
+  max-height:520px!important;
+  min-height:430px!important;
+  margin-top:40px!important;
+  padding-top:34px!important;
+  padding-bottom:34px!important;
+  border-width:1px!important;
+  opacity:1!important;
+  transform:none!important;
+  pointer-events:auto;
+}
+.chosen-area{overflow-anchor:none}
+
+/* 3) A slightly longer portal: enough time to feel like the cards are being organised, without stalling. */
+.entering-result-tunnel .chosen-area,
+.entering-result-tunnel .reading-finish{animation-duration:2.08s!important;animation-timing-function:cubic-bezier(.28,.02,.3,1)!important}
+.result-tunnel{animation-duration:2.22s!important}
+.result-tunnel>i{animation-duration:1.48s!important;transform:translate(-50%,-50%) scale(.08) rotate(var(--angle))}
+.tunnel-core{animation-duration:1.92s!important}
+.tunnel-core span{animation-duration:1.82s!important}
+.tunnel-thought{position:absolute;left:50%;top:calc(50% + 92px);transform:translateX(-50%);width:min(82vw,540px);height:28px;text-align:center;color:#d9ccb5;font-size:11px;letter-spacing:.08em;z-index:4;text-shadow:0 0 18px rgba(231,213,168,.18)}
+.tunnel-thought span{position:absolute;inset:0;display:grid;place-items:center;opacity:0}
+.tunnel-thought span:first-child{animation:tunnelThoughtA 2.12s ease both}
+.tunnel-thought span:last-child{animation:tunnelThoughtB 2.12s ease both}
+@keyframes tunnelThoughtA{0%,12%{opacity:0;transform:translateY(5px)}24%,48%{opacity:.9;transform:none}60%,100%{opacity:0;transform:translateY(-4px)}}
+@keyframes tunnelThoughtB{0%,48%{opacity:0;transform:translateY(5px)}62%,86%{opacity:.86;transform:none}100%{opacity:0;transform:translateY(-4px)}}
+@keyframes tunnelRing{0%{opacity:0;transform:translate(-50%,-50%) scale(.08) rotate(var(--angle))}22%{opacity:.72}100%{opacity:0;transform:translate(-50%,-50%) scale(8.5) rotate(var(--angle-end))}}
+
+@media(max-width:720px){
+  .deck-ribbon.is-dealing .intuition-card{--fan-shift:var(--fan-shift-mobile)}
+  .deck-deal-origin{width:68px;height:115px;bottom:38px}
+  .reveal-focus-stage.ready{max-height:680px!important;min-height:0!important;margin-top:26px!important;padding-top:24px!important;padding-bottom:28px!important}
+  .tunnel-thought{top:calc(50% + 78px);font-size:10px}
+}
+@media(prefers-reduced-motion:reduce){
+  .deck-deal-origin,.deck-ribbon.is-dealing .intuition-card,.tunnel-thought span{animation:none!important}
+  .deck-deal-origin{display:none!important}
+  .reveal-focus-stage,.reveal-focus-stage.ready{transition:none!important}
+}

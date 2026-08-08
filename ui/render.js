@@ -283,11 +283,14 @@ export function renderReading() {
       <div class="intuition-zone" id="intuitionZone" hidden>
         <div class="draw-counter"><span id="drawCounter">0</span><small> / ${spread.count} 已選</small></div>
         <p class="intuition-instruction" id="drawInstruction">憑第一直覺，從牌庫中選出第 1 張牌。</p>
-        <div class="deck-scroll" id="deckScroll" aria-label="78 張牌的牌庫"><div class="deck-ribbon" id="deckRibbon"></div></div>
+        <div class="deck-scroll" id="deckScroll" aria-label="78 張牌的牌庫">
+          <div class="deck-deal-origin" id="deckDealOrigin" aria-hidden="true">${Array.from({length:5},(_,i)=>`<i style="--stack:${i}"><span>✦</span></i>`).join('')}</div>
+          <div class="deck-ribbon" id="deckRibbon"></div>
+        </div>
         <p class="deck-note">每張牌都背面朝上。你點下哪一張，就會成為這次牌陣中的下一個位置。</p>
       </div>
 
-      <div class="reveal-focus-stage" id="revealFocusStage" hidden aria-live="polite">
+      <div class="reveal-focus-stage" id="revealFocusStage" aria-hidden="true" aria-live="polite">
         <div class="reveal-stage-copy"><p class="eyebrow">THE REVEAL</p><h2 id="revealStageTitle">準備親手翻牌</h2><p id="revealStageMeta">按下方任何一張牌，它會在這裡放大翻開，讓你先看清楚牌面。</p><div class="reveal-keywords" id="revealKeywords"></div></div>
         <div class="reveal-large-card" id="revealLargeCard" aria-hidden="true"><span>✦</span></div>
       </div>
@@ -334,10 +337,15 @@ export function renderReading() {
   let revealAnimating = false;
 
   function buildRibbon() {
+    ribbon.className = 'deck-ribbon is-dealing';
     ribbon.innerHTML = deck.map((_, i) => {
       const rot = ((i - 38.5) * .055).toFixed(2);
       const lift = (Math.abs(i - 38.5) * .045).toFixed(1);
-      return `<button class="intuition-card" type="button" data-card-index="${i}" aria-label="牌庫第 ${i+1} 張" style="--rot:${rot}deg;--lift:${lift}px"><span>✦</span></button>`;
+      const fanOffset = (38.5 - i).toFixed(1);
+      const fanDelay = Math.round(Math.abs(i - 38.5) * 10);
+      const fanShift = (Number(fanOffset) * 18).toFixed(1);
+      const fanShiftMobile = (Number(fanOffset) * 15).toFixed(1);
+      return `<button class="intuition-card" type="button" data-card-index="${i}" aria-label="牌庫第 ${i+1} 張" style="--rot:${rot}deg;--lift:${lift}px;--fan-shift:${fanShift}px;--fan-shift-mobile:${fanShiftMobile}px;--fan-delay:${fanDelay}ms" disabled><span>✦</span></button>`;
     }).join('');
     ribbon.querySelectorAll('.intuition-card').forEach(btn => btn.addEventListener('click', ()=>chooseCard(btn)));
   }
@@ -356,9 +364,18 @@ export function renderReading() {
       ritual.classList.add('is-complete');
       zone.hidden = false;
       chosenArea.hidden = false;
+      zone.classList.add('dealing');
       requestAnimationFrame(()=>zone.classList.add('visible'));
-      ritualStatus.textContent = '洗牌完成。現在只需要相信第一個直覺。';
-      window.setTimeout(()=>zone.scrollIntoView({behavior:'smooth', block:'center'}), 260);
+      ritualStatus.textContent = '洗牌完成。讓整副牌從牌疊中慢慢展開…';
+      window.setTimeout(()=>zone.scrollIntoView({behavior:'smooth', block:'center'}), 180);
+      window.setTimeout(()=>{
+        ribbon.classList.remove('is-dealing');
+        ribbon.classList.add('is-ready');
+        zone.classList.remove('dealing');
+        zone.classList.add('dealt');
+        ribbon.querySelectorAll('.intuition-card').forEach((btn)=>{ btn.disabled = false; });
+        ritualStatus.textContent = '牌庫已展開。現在只需要相信第一個直覺。';
+      }, 1580);
     }, 1250);
   }
 
@@ -377,16 +394,23 @@ export function renderReading() {
       readingRoot?.classList.add('spread-focused');
       chosenArea.classList.remove('spread-focus-zoom');
       chosenArea.classList.add('spread-focus-settled');
-      revealStage.hidden = false;
-      requestAnimationFrame(() => revealStage.classList.add('ready'));
-      window.setTimeout(() => revealStage.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block:'start' }), reduceMotion ? 0 : 80);
-      chosenHint.textContent = '現在按下每張牌親手翻開；牌面會飛到上方放大，讓你看清楚。';
-      slots.forEach((s, i) => {
-        const b = s.querySelector('.manual-slot-card');
-        b.disabled = false;
-        b.setAttribute('aria-label', `翻開第 ${i+1} 張牌：${spread.positions[i].name}`);
-        b.addEventListener('click', ()=>revealCard(i));
-      });
+
+      // Expand the reveal stage smoothly instead of inserting a large block
+      // into the document in one frame (which caused the visible page twitch).
+      revealStage.setAttribute('aria-hidden', 'false');
+      revealStage.classList.add('ready');
+      chosenHint.textContent = '準備翻牌中…牌面會在上方放大，讓你逐張看清楚。';
+
+      window.setTimeout(() => {
+        revealStage.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block:'center' });
+        chosenHint.textContent = '現在按下每張牌親手翻開；牌面會飛到上方放大，讓你看清楚。';
+        slots.forEach((s, i) => {
+          const b = s.querySelector('.manual-slot-card');
+          b.disabled = false;
+          b.setAttribute('aria-label', `翻開第 ${i+1} 張牌：${spread.positions[i].name}`);
+          b.addEventListener('click', ()=>revealCard(i));
+        });
+      }, reduceMotion ? 0 : 760);
     }, reduceMotion ? 80 : 1050);
   }
 
@@ -476,14 +500,14 @@ export function renderReading() {
     const tunnel = document.createElement('div');
     tunnel.className = 'result-tunnel';
     tunnel.setAttribute('aria-hidden', 'true');
-    tunnel.innerHTML = `<div class="tunnel-core"><span>✦</span></div>${Array.from({length:7},(_,i)=>`<i style="--ring:${i}"></i>`).join('')}`;
+    tunnel.innerHTML = `<div class="tunnel-core"><span>✦</span></div><div class="tunnel-thought"><span>正在整理你選出的牌…</span><span>把牌意放回你的問題裡…</span></div>${Array.from({length:9},(_,i)=>`<i style="--ring:${i};--delay:${i*92}ms;--angle:${i*7}deg;--angle-end:${i*7+30}deg"></i>`).join('')}`;
     document.body.appendChild(tunnel);
 
     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     window.setTimeout(() => {
       location.hash = `#/result/${result.id}`;
       window.setTimeout(() => tunnel.remove(), reduceMotion ? 0 : 90);
-    }, reduceMotion ? 80 : 1180);
+    }, reduceMotion ? 80 : 2220);
   });
   app.focus({ preventScroll:true });
 }
