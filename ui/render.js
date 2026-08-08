@@ -24,13 +24,23 @@ export function renderHome() {
         <p class="eyebrow">RULE-BASED TAROT · NO AI</p>
         <h1>讓牌面成為<br><em>整理思緒的鏡子</em></h1>
         <p class="lead">完整 78 張塔羅牌，以正逆位、占卜主題、牌陣位置、多牌關係與句式規則動態組合解讀。所有內容都在你的瀏覽器內完成。</p>
-        <div class="hero-actions"><a class="btn primary pulse-cta" href="#/setup">開始占卜 <span>→</span></a><a class="btn ghost" href="#/guide">瀏覽 78 張牌</a></div>
+        <div class="hero-actions"><a class="btn primary pulse-cta" id="startReading" href="#/setup">開始占卜 <span>→</span></a><a class="btn ghost" href="#/guide">瀏覽 78 張牌</a></div>
         <div class="privacy-chip">✦ 不使用 AI API　✦ 不上傳問題　✦ 歷史只存 localStorage</div>
       </div>
       <div class="hero-cards" aria-hidden="true">
         <img src="./assets/cards/major-17.svg" alt=""><img src="./assets/cards/major-02.svg" alt=""><img src="./assets/cards/major-19.svg" alt="">
       </div>
     </section>`;
+  const startReading = document.querySelector('#startReading');
+  startReading?.addEventListener('click', (event) => {
+    event.preventDefault();
+    if (startReading.dataset.transitioning === 'true') return;
+    startReading.dataset.transitioning = 'true';
+    document.body.classList.add('home-transition-out');
+    window.setTimeout(() => {
+      location.hash = '#/setup';
+    }, 560);
+  });
   app.focus({ preventScroll:true });
 }
 
@@ -52,12 +62,14 @@ function setupDraft(initialTheme) {
 }
 
 export function renderSetup(query='') {
+  document.body.classList.remove('home-transition-out');
   const params = new URLSearchParams(query);
   const requestedTheme = params.get('theme');
   const initialTheme = requestedTheme && themes[requestedTheme] ? requestedTheme : (state.setup?.theme || 'love');
   const draft = setupDraft(initialTheme);
   let currentStep = params.get('resume') === 'spread' ? 2 : params.get('resume') === 'focus' ? 1 : 0;
   let spreadTimer = null;
+  let firstRender = true;
 
   document.title = '設定你的占卜｜Arcana Mirror';
   app.innerHTML = `
@@ -86,12 +98,12 @@ export function renderSetup(query='') {
   function transitionTo(nextStep, direction=1) {
     if (nextStep < 0 || nextStep > 2 || nextStep === currentStep) return;
     clearTimeout(spreadTimer);
-    card.classList.remove('is-entering','enter-back');
+    card.classList.remove('is-entering','enter-back','first-entry');
     card.classList.add(direction > 0 ? 'is-leaving' : 'is-leaving-back');
     window.setTimeout(() => {
       currentStep = nextStep;
       renderStep(direction < 0);
-    }, 300);
+    }, 390);
   }
 
   function backButton() {
@@ -172,10 +184,12 @@ export function renderSetup(query='') {
 
   function renderStep(fromBack=false) {
     setProgress();
-    card.className = `wizard-card is-entering${fromBack?' enter-back':''}`;
+    const isFirstThemeEntry = firstRender && currentStep === 0 && !fromBack;
+    card.className = `wizard-card is-entering${fromBack?' enter-back':''}${isFirstThemeEntry?' first-entry':''}`;
     if (currentStep === 0) renderThemeStep();
     if (currentStep === 1) renderFocusStep();
     if (currentStep === 2) renderSpreadStep();
+    firstRender = false;
     app.focus({ preventScroll:true });
   }
 
@@ -246,7 +260,7 @@ export function renderReading() {
 
       <div class="reading-finish" id="readingFinish" hidden>
         <p>牌面已全部翻開。現在可以把它們放回同一個脈絡閱讀。</p>
-        <button class="btn primary" id="viewResult" type="button">查看完整解讀 <span>→</span></button>
+        <button class="btn primary pulse-cta result-portal-cta" id="viewResult" type="button">查看完整解讀 <span>→</span></button>
       </div>
     </section>`;
 
@@ -263,11 +277,14 @@ export function renderReading() {
   const chosenHint = document.querySelector('#chosenHint');
   const finish = document.querySelector('#readingFinish');
   const viewResult = document.querySelector('#viewResult');
+  const readingRoot = document.querySelector('.manual-reading');
   let deck = null;
   const selected = [];
   const revealed = new Set();
   let result = null;
   let shuffleStarted = false;
+  let spreadFocusStarted = false;
+  let resultTransitionStarted = false;
 
   function buildRibbon() {
     ribbon.innerHTML = deck.map((_, i) => {
@@ -298,6 +315,31 @@ export function renderReading() {
     }, 1250);
   }
 
+  function focusOnChosenSpread() {
+    if (spreadFocusStarted) return;
+    spreadFocusStarted = true;
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    chosenHint.textContent = '抽牌完成。讓牌陣慢慢成為畫面的中心…';
+    zone.classList.add('draw-complete');
+    readingRoot?.classList.add('focusing-spread');
+    chosenArea.classList.add('spread-focus-zoom');
+    chosenArea.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block:'center' });
+
+    window.setTimeout(() => {
+      readingRoot?.classList.remove('focusing-spread');
+      readingRoot?.classList.add('spread-focused');
+      chosenArea.classList.remove('spread-focus-zoom');
+      chosenArea.classList.add('spread-focus-settled');
+      chosenHint.textContent = '現在由第一張開始，按下每張牌親手翻開。';
+      slots.forEach((s, i) => {
+        const b = s.querySelector('.manual-slot-card');
+        b.disabled = false;
+        b.setAttribute('aria-label', `翻開第 ${i+1} 張牌：${spread.positions[i].name}`);
+        b.addEventListener('click', ()=>revealCard(i), { once:true });
+      });
+    }, reduceMotion ? 80 : 1050);
+  }
+
   function chooseCard(btn) {
     if (!deck || btn.disabled || selected.length >= spread.count) return;
     const index = Number(btn.dataset.cardIndex);
@@ -320,20 +362,9 @@ export function renderReading() {
       ribbon.classList.add('selection-complete');
       chosenHint.textContent = '正在把最後一張牌放入牌陣…';
 
-      // Wait until the final fly-to-slot animation has settled before enabling
-      // reveal buttons. Previously the last card's delayed slot update ran after
-      // reveal mode was enabled and disabled that button again, so the final
-      // card could not be flipped.
-      window.setTimeout(()=>{
-        chosenHint.textContent = '現在由第一張開始，按下每張牌親手翻開。';
-        slots.forEach((s, i) => {
-          const b = s.querySelector('.manual-slot-card');
-          b.disabled = false;
-          b.setAttribute('aria-label', `翻開第 ${i+1} 張牌：${spread.positions[i].name}`);
-          b.addEventListener('click', ()=>revealCard(i), { once:true });
-        });
-        chosenArea.scrollIntoView({behavior:'smooth', block:'center'});
-      }, 560);
+      // Let the final card land, then move the visual focus into the chosen
+      // spread before reveal mode becomes interactive.
+      window.setTimeout(focusOnChosenSpread, 580);
     }
   }
 
@@ -361,7 +392,25 @@ export function renderReading() {
 
   shuffleDeck.addEventListener('click', completeShuffle);
   shuffleCall.addEventListener('click', completeShuffle);
-  viewResult.addEventListener('click', ()=>{ if (result) location.hash = `#/result/${result.id}`; });
+  viewResult.addEventListener('click', ()=>{
+    if (!result || resultTransitionStarted) return;
+    resultTransitionStarted = true;
+    viewResult.setAttribute('aria-disabled', 'true');
+    viewResult.classList.add('portal-activated');
+    readingRoot?.classList.add('entering-result-tunnel');
+
+    const tunnel = document.createElement('div');
+    tunnel.className = 'result-tunnel';
+    tunnel.setAttribute('aria-hidden', 'true');
+    tunnel.innerHTML = `<div class="tunnel-core"><span>✦</span></div>${Array.from({length:7},(_,i)=>`<i style="--ring:${i}"></i>`).join('')}`;
+    document.body.appendChild(tunnel);
+
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    window.setTimeout(() => {
+      location.hash = `#/result/${result.id}`;
+      window.setTimeout(() => tunnel.remove(), reduceMotion ? 0 : 90);
+    }, reduceMotion ? 80 : 1180);
+  });
   app.focus({ preventScroll:true });
 }
 
