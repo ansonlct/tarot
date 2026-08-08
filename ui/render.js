@@ -387,31 +387,42 @@ export function renderReading() {
     zone.classList.add('draw-complete');
     readingRoot?.classList.add('focusing-spread');
     chosenArea.classList.add('spread-focus-zoom');
+
     chosenArea.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block:'center' });
 
     window.setTimeout(() => {
       readingRoot?.classList.remove('focusing-spread');
-      readingRoot?.classList.add('spread-focused');
+      readingRoot?.classList.add('spread-focused', 'reveal-mode-transition');
       chosenArea.classList.remove('spread-focus-zoom');
       chosenArea.classList.add('spread-focus-settled');
-
-      // Expand the reveal stage smoothly instead of inserting a large block
-      // into the document in one frame (which caused the visible page twitch).
-      revealStage.setAttribute('aria-hidden', 'false');
-      revealStage.classList.add('ready');
-      chosenHint.textContent = '準備翻牌中…牌面會在上方放大，讓你逐張看清楚。';
+      chosenHint.textContent = '牌陣已聚焦。正在整理翻牌空間…';
 
       window.setTimeout(() => {
-        revealStage.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block:'center' });
-        chosenHint.textContent = '現在按下每張牌親手翻開；牌面會飛到上方放大，讓你看清楚。';
-        slots.forEach((s, i) => {
-          const b = s.querySelector('.manual-slot-card');
-          b.disabled = false;
-          b.setAttribute('aria-label', `翻開第 ${i+1} 張牌：${spread.positions[i].name}`);
-          b.addEventListener('click', ()=>revealCard(i));
+        // Switch to a compact, viewport-centred reveal scene only after the
+        // previous scene has faded. This prevents the scroll position and
+        // document height from fighting each other and causing a page jump.
+        readingRoot?.classList.remove('reveal-mode-transition');
+        readingRoot?.classList.add('reveal-mode');
+        revealStage.setAttribute('aria-hidden', 'false');
+        revealStage.classList.add('ready');
+        chosenHint.textContent = '準備翻牌中…牌面會在上方放大，讓你逐張看清楚。';
+
+        requestAnimationFrame(() => {
+          const top = readingRoot?.getBoundingClientRect().top + window.scrollY || 0;
+          window.scrollTo({ top, behavior: 'auto' });
         });
-      }, reduceMotion ? 0 : 760);
-    }, reduceMotion ? 80 : 1050);
+
+        window.setTimeout(() => {
+          chosenHint.textContent = '按下方任何一張牌親手翻開；牌面會飛到上方放大，讓你看清楚。';
+          slots.forEach((s, i) => {
+            const b = s.querySelector('.manual-slot-card');
+            b.disabled = false;
+            b.setAttribute('aria-label', `翻開第 ${i+1} 張牌：${spread.positions[i].name}`);
+            b.addEventListener('click', ()=>revealCard(i));
+          });
+        }, reduceMotion ? 0 : 620);
+      }, reduceMotion ? 0 : 440);
+    }, reduceMotion ? 80 : 980);
   }
 
   function chooseCard(btn) {
@@ -483,6 +494,7 @@ export function renderReading() {
       state.lastResult = result;
       saveReading(result);
       finish.hidden = false;
+      finish.querySelector('p').textContent = `${spread.count} 張牌已經完整翻開，可以直接進入解讀。`;
       requestAnimationFrame(()=>finish.classList.add('visible'));
     }
   }
@@ -514,14 +526,26 @@ export function renderReading() {
 
 const shortClause = (text='') => String(text).split(/[；。]/).map((v)=>v.trim()).find(Boolean) || String(text).trim();
 
+function fallbackActionForItem(item) {
+  const key = item.keywords?.[0] || '這個重點';
+  if (['advice','guidance'].includes(item.positionId)) return `把建議落地：${shortClause(item.advice)}。今天先完成其中一個最小步驟。`;
+  if (['situation','present'].includes(item.positionId)) return `先確認現況：寫下一件支持「${key}」的事實，再寫下一件可能反駁它的事實，避免只憑感覺下結論。`;
+  if (item.positionId==='obstacle') return `先處理阻礙：${shortClause(item.warning)}。只處理最影響你的那一項。`;
+  if (item.positionId==='past') return '把過去和現在分開：找出一個仍在影響你的舊模式；如果它已不適用，就不要再用它解釋今天。';
+  if (['future','outcome'].includes(item.positionId)) return `把這張牌當成情境測試：如果保持現況，留意「${key}」是否開始出現；不理想就及早調整。`;
+  if (item.positionId==='factor') return `盤點一個與「${key}」有關、你現在真的可以運用的資源或條件，今天把它用在下一步。`;
+  if (item.positionId==='hidden') return `檢查被忽略的部分：看看是否有與「${key}」有關的資訊或感受未被看見，再用事實確認。`;
+  return `${shortClause(item.advice || item.action)}。`;
+}
+
 function fallbackPlainCard(item) {
   const key = item.keywords?.[0] || '當下重點';
   const second = item.keywords?.[1] ? `、${item.keywords[1]}` : '';
   return {
-    headline: `${item.positionName}：先看「${key}」`,
-    meaning: `在「${item.positionName}」這個位置，先看「${key}${second}」。${shortClause(item.baseMeaning)}。${item.orientation==='upright'?'這股能量目前比較容易發揮。':'這股能量目前較容易卡住或失衡，先修正會更穩。'}`,
-    action: shortClause(item.advice || item.action),
-    watch: shortClause(item.warning),
+    headline: `${item.positionName}：重點是「${key}」`,
+    meaning: `在「${item.positionName}」這個位置，先看「${key}${second}」。${shortClause(item.baseMeaning)}。${item.orientation==='upright'?'正位表示這股力量較容易運用，但仍要落到現實行動。':'逆位不等於壞結果，而是提醒這股力量可能受阻或失衡，先校正會更穩。'}`,
+    action: fallbackActionForItem(item),
+    watch: `${shortClause(item.warning)}。`,
   };
 }
 
@@ -555,9 +579,9 @@ export function renderResult(id) {
   if (!result) { page('找不到這次占卜', 'RESULT', `<div class="empty"><p>這筆紀錄可能已被刪除，或來自另一個瀏覽器。</p><a class="btn primary" href="#/setup">重新占卜</a></div>`); return; }
   const theme=themes[result.reading.theme]||themes.custom;
   const plain = result.plainOverview || fallbackPlainOverview(result);
-  const plainCards = result.plainCards || result.interpretations.map(fallbackPlainCard);
-  const simpleAdvice = result.adviceItems.slice(0,3).map(shortClause);
-  const simpleWarnings = result.warnings.slice(0,3).map(shortClause);
+  const plainCards = result.plainNextSteps?.length ? (result.plainCards || result.interpretations.map(fallbackPlainCard)) : result.interpretations.map(fallbackPlainCard);
+  const simpleAdvice = (result.plainNextSteps?.length ? result.plainNextSteps : plainCards.map((p)=>p.action).filter(Boolean)).slice(0,3);
+  const simpleWarnings = (result.plainWarnings?.length ? result.plainWarnings : plainCards.map((p)=>p.watch).filter(Boolean)).slice(0,3);
   page('你的解讀', 'READING RESULT', `
     <section class="result-intro"><div><div class="reading-meta"><span>${theme.label}</span><span>${escapeHtml(result.reading.subtopic)}</span><span>${escapeHtml(result.spread.name)}</span></div><h2>「${escapeHtml(result.reading.question)}」</h2><p>${fmtDate(result.createdAt)}</p></div><a href="#/setup" class="btn ghost">再次占卜</a></section>
 
@@ -571,7 +595,7 @@ export function renderResult(id) {
     <section class="simple-cards-section"><div class="section-heading"><p class="eyebrow">CARD BY CARD</p><h2>逐張看，就會清楚</h2><p>不用背牌義。只要看「這個位置代表甚麼 → 牌在提醒甚麼 → 你可以怎樣做」。</p></div><div class="simple-result-cards">${result.interpretations.map((item,i)=>resultCard(item,plainCards[i])).join('')}</div></section>
 
     <section class="plain-next-steps">
-      <div><p class="eyebrow">NEXT STEPS</p><h2>接下來，可以先做</h2>${simpleAdvice.map(v=>`<p class="plain-check">✓ ${escapeHtml(v)}</p>`).join('')}</div>
+      <div><p class="eyebrow">NEXT STEPS</p><h2>接下來，按這個次序做</h2>${simpleAdvice.map((v,i)=>`<div class="plain-step"><b>${i+1}</b><p>${escapeHtml(v)}</p></div>`).join('')}</div>
       <div><p class="eyebrow">WATCH FOR</p><h2>同時留意</h2>${simpleWarnings.map(v=>`<p class="plain-watch">— ${escapeHtml(v)}</p>`).join('')}</div>
     </section>
 

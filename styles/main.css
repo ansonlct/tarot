@@ -335,3 +335,138 @@ body.home-entering #app .hero-cards{animation:homeCardsArrive 1s cubic-bezier(.1
   .deck-deal-origin{display:none!important}
   .reveal-focus-stage,.reveal-focus-stage.ready{transition:none!important}
 }
+
+/* --- Reveal workspace + clearer reading v2.5 -------------------------- */
+/* Fade the long draw scene away first; only then compact it. */
+.manual-reading.reveal-mode-transition .reading-intro,
+.manual-reading.reveal-mode-transition .shuffle-ritual,
+.manual-reading.reveal-mode-transition .intuition-zone{
+  opacity:0!important;
+  filter:blur(7px);
+  transform:scale(.985);
+  transition:opacity .38s ease,filter .38s ease,transform .38s ease!important;
+  pointer-events:none;
+}
+
+/* Dedicated reveal viewport: no stranded scroll position, no giant blank area. */
+.manual-reading.reveal-mode{
+  min-height:100svh;
+  padding-bottom:112px;
+  overflow-x:hidden;
+}
+.manual-reading.reveal-mode .reading-intro,
+.manual-reading.reveal-mode .shuffle-ritual,
+.manual-reading.reveal-mode .intuition-zone{
+  display:none!important;
+}
+.manual-reading.reveal-mode .reading-header{max-width:1040px}
+.manual-reading.reveal-mode .reveal-focus-stage.ready{
+  width:min(820px,calc(100vw - 44px));
+  max-width:820px;
+  min-height:340px!important;
+  max-height:360px!important;
+  margin:clamp(18px,3.5vh,32px) auto 0!important;
+  padding:24px 38px!important;
+  grid-template-columns:minmax(0,1fr) 190px;
+  gap:42px;
+  border-width:1px!important;
+  opacity:1!important;
+  transform:none!important;
+  overflow:visible;
+}
+.manual-reading.reveal-mode .reveal-focus-stage:before{inset:12px}
+.manual-reading.reveal-mode .reveal-stage-copy h2{font-size:clamp(30px,3.1vw,42px)}
+.manual-reading.reveal-mode .reveal-stage-copy>p:not(.eyebrow){font-size:12px;line-height:1.65}
+.manual-reading.reveal-mode .reveal-keywords{margin-top:15px}
+.manual-reading.reveal-mode .reveal-large-card{width:190px;height:315px;border-radius:13px}
+.manual-reading.reveal-mode .chosen-area{
+  width:min(820px,calc(100vw - 44px));
+  max-width:820px;
+  margin:14px auto 0!important;
+  padding-top:15px;
+  border-top-color:rgba(201,173,114,.18);
+}
+.manual-reading.reveal-mode .chosen-heading .eyebrow{margin-bottom:5px}
+.manual-reading.reveal-mode .chosen-heading h2{font-size:30px}
+.manual-reading.reveal-mode .chosen-heading>p:not(.eyebrow){margin:3px 0 13px;font-size:9px}
+.manual-reading.reveal-mode .manual-slots{min-height:160px;gap:clamp(6px,1.3vw,16px)}
+.manual-reading.reveal-mode .manual-slot{width:108px}
+.manual-reading.reveal-mode .manual-slot-card{width:82px;height:136px;border-radius:8px}
+.manual-reading.reveal-mode .manual-slot>small{font-size:9px;margin-top:6px}
+
+/* Result CTA becomes a bottom action tray as soon as the final card is open. */
+.manual-reading.reveal-mode .reading-finish.visible{
+  position:fixed;
+  left:50%;
+  bottom:max(18px,env(safe-area-inset-bottom));
+  z-index:520;
+  width:min(720px,calc(100vw - 34px));
+  max-width:720px;
+  margin:0;
+  padding:12px 14px 12px 20px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  text-align:left;
+  border:1px solid rgba(231,213,168,.3);
+  border-radius:999px;
+  background:rgba(13,10,18,.9);
+  backdrop-filter:blur(20px);
+  box-shadow:0 20px 70px rgba(0,0,0,.55),0 0 35px rgba(201,173,114,.08);
+  opacity:1;
+  transform:translateX(-50%);
+}
+.manual-reading.reveal-mode .reading-finish.visible p{margin:0;font-size:12px;line-height:1.45;color:#bdb2a1}
+.manual-reading.reveal-mode .reading-finish.visible .btn{margin:0;min-height:46px;min-width:190px;flex:0 0 auto}
+.entering-result-tunnel .reading-finish{animation:resultTrayExit .72s cubic-bezier(.4,0,.2,1) both!important}
+.entering-result-tunnel .reveal-focus-stage{animation:portalSceneZoom 2.08s cubic-bezier(.28,.02,.3,1) both;transform-origin:50% 50%}
+@keyframes resultTrayExit{from{opacity:1;transform:translateX(-50%) scale(1)}to{opacity:0;transform:translateX(-50%) scale(1.08);filter:blur(5px)}}
+
+/* Easier-to-scan result actions: each line has a different job and an order. */
+.plain-step{display:grid;grid-template-columns:34px 1fr;gap:12px;align-items:start;border-top:1px solid rgba(255,255,255,.07);padding-top:13px;margin-top:13px}
+.plain-step>b{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;border:1px solid rgba(201,173,114,.3);color:var(--gold2);font-family:Georgia,serif;font-size:13px;font-weight:400}
+.plain-step p{margin:1px 0 0;color:#c9bead;font-size:13px;line-height:1.75}
+
+@media(max-width:720px){
+  .manual-reading.reveal-mode{padding:0 14px 122px}
+  .manual-reading.reveal-mode .reading-header{height:64px}
+  .manual-reading.reveal-mode .reveal-focus-stage.ready{
+    width:100%;
+    max-height:none!important;
+    min-height:0!important;
+    margin:14px auto 0!important;
+    padding:18px 16px 20px!important;
+    grid-template-columns:1fr 142px;
+    gap:16px;
+    text-align:left;
+  }
+  .manual-reading.reveal-mode .reveal-stage-copy{order:1;text-align:left}
+  .manual-reading.reveal-mode .reveal-large-card{order:2;width:142px;height:235px}
+  .manual-reading.reveal-mode .reveal-stage-copy h2{font-size:26px}
+  .manual-reading.reveal-mode .chosen-area{width:100%;margin-top:10px!important;padding-top:10px}
+  .manual-reading.reveal-mode .chosen-heading h2{font-size:25px}
+  .manual-reading.reveal-mode .manual-slots{min-height:138px;overflow-x:auto;justify-content:flex-start;padding:0 8px}
+  .manual-reading.reveal-mode .manual-slots.cards-1,.manual-reading.reveal-mode .manual-slots.cards-3{justify-content:center}
+  .manual-reading.reveal-mode .manual-slot{width:92px;flex:0 0 92px}
+  .manual-reading.reveal-mode .manual-slot-card{width:72px;height:119px}
+  .manual-reading.reveal-mode .reading-finish.visible{border-radius:22px;padding:10px 10px 10px 14px;gap:10px}
+  .manual-reading.reveal-mode .reading-finish.visible p{font-size:10px}
+  .manual-reading.reveal-mode .reading-finish.visible .btn{min-width:160px;padding:0 16px;font-size:12px}
+}
+@media(max-width:520px){
+  .manual-reading.reveal-mode .reveal-focus-stage.ready{grid-template-columns:1fr;text-align:center}
+  .manual-reading.reveal-mode .reveal-stage-copy{order:2;text-align:center}
+  .manual-reading.reveal-mode .reveal-large-card{order:1;width:150px;height:249px}
+  .manual-reading.reveal-mode .reveal-keywords{justify-content:center}
+  .manual-reading.reveal-mode .reading-finish.visible p{display:none}
+  .manual-reading.reveal-mode .reading-finish.visible{width:auto;padding:8px;left:50%}
+}
+@media(prefers-reduced-motion:reduce){
+  .manual-reading.reveal-mode-transition .reading-intro,
+  .manual-reading.reveal-mode-transition .shuffle-ritual,
+  .manual-reading.reveal-mode-transition .intuition-zone,
+  .entering-result-tunnel .reading-finish,
+  .entering-result-tunnel .reveal-focus-stage{animation:none!important;transition:none!important}
+}
+.manual-reading.reveal-mode.reading-enter{animation:none!important;transform:none!important;filter:none!important;opacity:1!important}
