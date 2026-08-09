@@ -48,3 +48,12 @@ npm run check
 - Dashboard scores are rule-based reading tendencies, not scientific probabilities or guarantees.
 
 - v2.7 儀錶指針修正為 0=左、50=上、100=右，並加入汽車著車式掃錶回彈動畫。
+
+
+## v2.8
+- 結果頁每張牌固定顯示 4 個核心關鍵詞；完整牌義仍可在塔羅牌指南查看。
+- 儀錶改用同一條 SVG 半圓 path 計算填色與指針，修正分數位置視覺錯位。
+- 保留汽車著車式掃錶動畫，最後準確停在分數位置。
+- REMEMBER 區改為「占卜師介紹／真人深入分析」。
+- 加入 PayMe 與 PayPal 圖示付款入口。ui/render.js 內 PAYMENT_LINKS 目前指向服務商入口頁，正式上線前必須替換成實際收款連結。
+- 目前為純靜態網站，不能自動確認 PayMe / PayPal 是否付款成功，也不能自動把付款者資料傳給真人占卜師；若要做到「付款後自動聯絡」，需再接後端、表單或付款 webhook。

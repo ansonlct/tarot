@@ -62,10 +62,14 @@ ok(/localStorage/.test(await readFile(join(root,'storage/history.js'),'utf8')),'
 
 const renderCode=await readFile(join(root,'ui/render.js'),'utf8');
 const mainCss=await readFile(join(root,'styles/main.css'),'utf8');
-ok(/-180 \+ positive \* 1\.8/.test(renderCode),'儀錶指針角度對應：0=左、50=上、100=右');
+ok(/const needle = \(positive \* 1\.8\)/.test(renderCode),'儀錶指針角度對應：0=左、50=上、100=右');
 ok(renderCode.includes("dashboardDial('成功', scores.success, '不成功', scores.failure)") && renderCode.includes("dashboardDial('好運', scores.luck, '厄運', scores.misfortune)"),'結果頁只保留成功／不成功與好運／厄運兩個儀錶');
 ok(!renderCode.includes("dashboardDial('好事'"),'已移除好事／壞事儀錶');
-ok(/@keyframes dashboardNeedleIgnition/.test(mainCss) && /var\(--needle-end\)/.test(mainCss),'儀錶指針具汽車著車式掃錶回彈動畫');
+ok(/@keyframes dashboardNeedleIgnition/.test(mainCss) && /dial-needle-group/.test(mainCss) && /var\(--needle-end\)/.test(mainCss),'儀錶指針具汽車著車式掃錶回彈動畫');
+ok(/pathLength=\"100\"/.test(renderCode) && /dial-track/.test(renderCode) && /dial-fill/.test(renderCode),'儀錶填色與指針共用同一 SVG 半圓幾何');
+ok(/item\.keywords\.slice\(0,4\)/.test(renderCode),'結果頁每張牌只顯示 4 個核心關鍵詞');
+ok(renderCode.includes('占卜師介紹') && !renderCode.includes('<p class=\"eyebrow\">REMEMBER</p>'),'REMEMBER 已改為占卜師介紹');
+ok(renderCode.includes('PAYMENT_LINKS') && renderCode.includes('PayMe') && renderCode.includes('PayPal'),'已加入 PayMe / PayPal 付款連結介面');
 
 if(failures.length){console.error('\nVALIDATION FAILED');for(const f of failures)console.error('✗',f);process.exit(1)}
 console.log(`\nAll checks passed. ${tarotCards.length} cards, ${spreads.length} spreads, ${Object.keys(specialCombinations).length} special combinations.`);

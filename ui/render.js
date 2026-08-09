@@ -10,6 +10,23 @@ export const state = { setup: null, setupDraft: null, lastResult: null };
 const escapeHtml = (v='') => String(v).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 const fmtDate = (iso) => new Intl.DateTimeFormat('zh-Hant', { dateStyle:'medium', timeStyle:'short' }).format(new Date(iso));
 
+// Replace these two URLs with your own merchant / personal collection links before launch.
+const PAYMENT_LINKS = {
+  payme: 'https://payme.hsbc.com.hk/',
+  paypal: 'https://www.paypal.com/paypalme/'
+};
+
+function paymentButtons(compact=false) {
+  return `<div class="payment-links ${compact?'compact':''}" aria-label="真人分析付款方式">
+    <a class="payment-link payme" href="${PAYMENT_LINKS.payme}" target="_blank" rel="noopener noreferrer" aria-label="使用 PayMe 付款">
+      <span class="payment-icon payme-icon" aria-hidden="true"><svg viewBox="0 0 40 40"><rect x="6" y="7" width="28" height="26" rx="8"></rect><path d="M12 16h16M14 22h5l2-3 3 6 2-3h3"></path></svg></span><span>PayMe</span>
+    </a>
+    <a class="payment-link paypal" href="${PAYMENT_LINKS.paypal}" target="_blank" rel="noopener noreferrer" aria-label="使用 PayPal 付款">
+      <span class="payment-icon paypal-icon" aria-hidden="true"><svg viewBox="0 0 40 40"><path d="M14 8h10c6 0 9 3 8 8-1 6-5 9-11 9h-4l-2 8H9l5-25Z"></path><path d="M18 13h8c4 0 6 2 5 5-1 4-4 6-8 6h-4"></path></svg></span><span>PayPal</span>
+    </a>
+  </div>`;
+}
+
 function page(title, eyebrow, body, cls='') {
   document.title = `${title}｜Arcana Mirror`;
   app.innerHTML = `<section class="page ${cls}"><div class="page-head"><p class="eyebrow">${eyebrow}</p><h1>${title}</h1></div>${body}</section>`;
@@ -584,14 +601,27 @@ function resultCard(item) {
 }
 
 function dashboardDial(label, positive, negativeLabel, negative) {
-  const angle = (positive * 1.8).toFixed(1);
-  // 0 = far left (-180deg), 50 = straight up (-90deg), 100 = far right (0deg).
-  const needle = (-180 + positive * 1.8).toFixed(1);
-  return `<article class="dashboard-dial" style="--score:${positive};--angle:${angle}deg;--needle-end:${needle}deg">
+  const needle = (positive * 1.8).toFixed(1);
+  const filled = Number(positive).toFixed(0);
+  const remainder = Math.max(0, 100 - Number(positive)).toFixed(0);
+  return `<article class="dashboard-dial" style="--needle-end:${needle}deg">
     <div class="dial-face" aria-label="${escapeHtml(label)} ${positive} 分">
-      <div class="dial-arc"></div>
-      <span class="dial-tick t0"></span><span class="dial-tick t25"></span><span class="dial-tick t50"></span><span class="dial-tick t75"></span><span class="dial-tick t100"></span>
-      <i class="dial-needle"></i><b class="dial-hub"></b>
+      <svg class="dial-svg" viewBox="0 0 320 188" role="img" aria-hidden="true">
+        <path class="dial-track" pathLength="100" d="M46 160 A114 114 0 0 1 274 160"></path>
+        <path class="dial-fill" pathLength="100" stroke-dasharray="${filled} ${remainder}" d="M46 160 A114 114 0 0 1 274 160"></path>
+        <g class="dial-ticks">
+          <line x1="46" y1="160" x2="54" y2="160"></line>
+          <line x1="79.4" y1="79.4" x2="85.1" y2="85.1"></line>
+          <line x1="160" y1="46" x2="160" y2="54"></line>
+          <line x1="240.6" y1="79.4" x2="234.9" y2="85.1"></line>
+          <line x1="274" y1="160" x2="266" y2="160"></line>
+        </g>
+        <g class="dial-needle-group">
+          <line class="dial-needle" x1="160" y1="160" x2="57" y2="160"></line>
+        </g>
+        <circle class="dial-hub-outer" cx="160" cy="160" r="7"></circle>
+        <circle class="dial-hub" cx="160" cy="160" r="3"></circle>
+      </svg>
       <div class="dial-number"><strong>${positive}</strong><small>/ 100</small></div>
     </div>
     <div class="dial-pair"><span><b>${escapeHtml(label)}</b>${positive}</span><span><b>${escapeHtml(negativeLabel)}</b>${negative}</span></div>
@@ -647,12 +677,16 @@ export function renderResult(id) {
             <p>${escapeHtml(summary.full || result.pattern || result.coreMessage)}</p>
             <p>${escapeHtml((result.combinations || []).slice(0,2).map(c=>c.text).join(' ') || '牌與牌之間仍有更多關係可以進一步拆解，包括位置、正逆位比例與組合訊號。')}</p>
           </div>
-          <div class="summary-lock-overlay"><span>✦</span><strong>完整分析已鎖定</strong><p>日後可接駁收費模式，付款後解除模糊並顯示全文。</p><button type="button" disabled>付費解鎖 · 稍後推出</button></div>
+          <div class="summary-lock-overlay"><span>✦</span><strong>真人完整分析</strong><p>如想深入了解牌與牌之間的關係、正逆位及你目前問題的實際脈絡，可選擇真人分析。付款後會有專人聯絡你安排。</p>${paymentButtons(true)}<small>付款會在 PayMe／PayPal 外部頁面進行；此靜態網站目前不會自動核實付款或解除模糊內容。</small></div>
         </div>
       </div>
     </section>
 
-    <section class="final-summary simple-final"><p class="eyebrow">REMEMBER</p><h2>把牌當成鏡子，不是判決。</h2><p>牌面指出的是現在較值得留意的方向。真正會改變結果的，仍然是現實資訊、溝通方式，以及你之後的選擇。</p><div class="disclaimer-box">塔羅占卜屬於娛樂及自我反思用途，結果並非科學預測，也不能保證未來一定會按照牌面發展。涉及醫療、法律、投資或重大人生決策時，應以專業意見及實際資訊作判斷。</div></section>
+    <section class="reader-intro-section">
+      <div class="reader-intro-copy"><p class="eyebrow">TAROT READER</p><h2>占卜師介紹</h2><p>網站先用牌義規則幫你快速整理重點；如果你想再深入處理問題背景、牌陣位置、正逆位，以及多張牌之間的關係，可以選擇真人分析服務。</p><p>付款後會有專人聯絡你，確認你的問題與所需分析方向，再由真人占卜師作進一步解讀。</p></div>
+      <div class="reader-service-card"><span class="reader-mark">✦</span><div><strong>真人深入分析</strong><p>PayMe 或 PayPal 付款後安排專人跟進。</p></div>${paymentButtons()}</div>
+      <div class="disclaimer-box">塔羅占卜屬於娛樂及自我反思用途，結果並非科學預測，也不能保證未來一定會按照牌面發展。涉及醫療、法律、投資或重大人生決策時，應以專業意見及實際資訊作判斷。</div>
+    </section>
   `,'result-page keyword-result-page');
 }
 
