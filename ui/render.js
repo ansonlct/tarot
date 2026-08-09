@@ -536,7 +536,7 @@ const luckyCardIds = new Set(['major-10','major-17','major-19','major-20','major
 
 function dashboardScores(result) {
   const items = result.interpretations || [];
-  if (!items.length) return { success:50, failure:50, good:50, bad:50, luck:50, misfortune:50 };
+  if (!items.length) return { success:50, failure:50, luck:50, misfortune:50 };
 
   let totalWeight = 0;
   let orientationTotal = 0;
@@ -564,12 +564,10 @@ function dashboardScores(result) {
   const outcomeSignal = outcomeBias / Math.max(totalWeight, 1);
 
   const success = clampScore(50 + orientationSignal * 22 + keywordSignal * 16 + outcomeSignal * 42);
-  const good = clampScore(50 + orientationSignal * 18 + keywordSignal * 24);
   const luck = clampScore(50 + orientationSignal * 12 + keywordSignal * 12 + luckSignal * 70);
 
   return {
     success, failure: 100 - success,
-    good, bad: 100 - good,
     luck, misfortune: 100 - luck,
   };
 }
@@ -587,8 +585,9 @@ function resultCard(item) {
 
 function dashboardDial(label, positive, negativeLabel, negative) {
   const angle = (positive * 1.8).toFixed(1);
-  const needle = (positive * 1.8 - 90).toFixed(1);
-  return `<article class="dashboard-dial" style="--score:${positive};--angle:${angle}deg;--needle:${needle}deg">
+  // 0 = far left (-180deg), 50 = straight up (-90deg), 100 = far right (0deg).
+  const needle = (-180 + positive * 1.8).toFixed(1);
+  return `<article class="dashboard-dial" style="--score:${positive};--angle:${angle}deg;--needle-end:${needle}deg">
     <div class="dial-face" aria-label="${escapeHtml(label)} ${positive} 分">
       <div class="dial-arc"></div>
       <span class="dial-tick t0"></span><span class="dial-tick t25"></span><span class="dial-tick t50"></span><span class="dial-tick t75"></span><span class="dial-tick t100"></span>
@@ -635,8 +634,7 @@ export function renderResult(id) {
       <div class="dashboard-heading"><div><p class="eyebrow">READING DASHBOARD</p><h2>牌面儀錶板</h2></div><p>分數代表這次牌面的相對傾向，不是科學機率或結果保證。</p></div>
       <div class="dashboard-cluster">
         ${dashboardDial('成功', scores.success, '不成功', scores.failure)}
-        ${dashboardDial('好事', scores.good, '壞事', scores.bad)}
-        ${dashboardDial('好運', scores.luck, '衰運', scores.misfortune)}
+        ${dashboardDial('好運', scores.luck, '厄運', scores.misfortune)}
       </div>
     </section>
 

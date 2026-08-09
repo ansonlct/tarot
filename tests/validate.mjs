@@ -60,5 +60,12 @@ ok(!/\bTODO\b|待補充|YOUR_API_KEY|api\.openai|openai\.com\/v1|anthropic|gemin
 ok(!/\bfetch\s*\(|XMLHttpRequest|WebSocket\s*\(/.test(code),'程式碼不向外部服務發送網路請求');
 ok(/localStorage/.test(await readFile(join(root,'storage/history.js'),'utf8')),'歷史紀錄使用 localStorage');
 
+const renderCode=await readFile(join(root,'ui/render.js'),'utf8');
+const mainCss=await readFile(join(root,'styles/main.css'),'utf8');
+ok(/-180 \+ positive \* 1\.8/.test(renderCode),'儀錶指針角度對應：0=左、50=上、100=右');
+ok(renderCode.includes("dashboardDial('成功', scores.success, '不成功', scores.failure)") && renderCode.includes("dashboardDial('好運', scores.luck, '厄運', scores.misfortune)"),'結果頁只保留成功／不成功與好運／厄運兩個儀錶');
+ok(!renderCode.includes("dashboardDial('好事'"),'已移除好事／壞事儀錶');
+ok(/@keyframes dashboardNeedleIgnition/.test(mainCss) && /var\(--needle-end\)/.test(mainCss),'儀錶指針具汽車著車式掃錶回彈動畫');
+
 if(failures.length){console.error('\nVALIDATION FAILED');for(const f of failures)console.error('✗',f);process.exit(1)}
 console.log(`\nAll checks passed. ${tarotCards.length} cards, ${spreads.length} spreads, ${Object.keys(specialCombinations).length} special combinations.`);

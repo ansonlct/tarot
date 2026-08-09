@@ -40,9 +40,11 @@ npm run check
 
 問題與結果只保存在目前瀏覽器的 localStorage，不會上傳到第三方伺服器。
 
-## Immersive v2.6
+## Immersive v2.7
 - Main page / draw room immersive transitions retained.
 - Result page card-by-card view is simplified to English name, Chinese name, orientation and 4 key terms only.
-- Added a car-dashboard inspired score area for 成功／不成功、好事／壞事、好運／衰運.
+- Added a car-dashboard inspired score area for 成功／不成功、好運／厄運.
 - Added a summary-analysis preview with the opening text visible and the remaining analysis blurred/locked, ready for a future paid unlock flow.
 - Dashboard scores are rule-based reading tendencies, not scientific probabilities or guarantees.
+
+- v2.7 儀錶指針修正為 0=左、50=上、100=右，並加入汽車著車式掃錶回彈動畫。
