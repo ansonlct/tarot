@@ -40,8 +40,9 @@ npm run check
 
 問題與結果只保存在目前瀏覽器的 localStorage，不會上傳到第三方伺服器。
 
-## Immersive v2.3
-- Main page fade-in arrival animation.
-- Step 03 to draw room uses fade-out then fade-in transition.
-- Revealed cards fly to a large spotlight stage and flip at readable size.
-- Result page now prioritizes plain-language overview, card-by-card meaning, actions and warnings; advanced rules are collapsed.
+## Immersive v2.6
+- Main page / draw room immersive transitions retained.
+- Result page card-by-card view is simplified to English name, Chinese name, orientation and 4 key terms only.
+- Added a car-dashboard inspired score area for 成功／不成功、好事／壞事、好運／衰運.
+- Added a summary-analysis preview with the opening text visible and the remaining analysis blurred/locked, ready for a future paid unlock flow.
+- Dashboard scores are rule-based reading tendencies, not scientific probabilities or guarantees.

@@ -15,6 +15,9 @@ ok(tarotMeta.total===78,'完整 78 張牌');
 ok(tarotMeta.majors===22 && tarotMeta.minors===56,'22 張大阿爾克那 + 56 張小阿爾克那');
 ok(new Set(tarotCards.map(c=>c.id)).size===78,'所有牌 ID 唯一');
 ok(new Set(tarotCards.map(c=>c.zhName)).size===78,'所有中文牌名唯一');
+const wands8=tarotCards.find(c=>c.id==='wands-8'); const wands4=tarotCards.find(c=>c.id==='wands-4');
+ok(wands8?.reversedKeywords.slice(0,4).join(' ')==='阻塞 急躁 重複困住 衝動','權杖八逆位精簡關鍵詞符合結果頁格式');
+ok(wands4?.reversedKeywords.slice(0,4).join(' ')==='僵化 停滯 保守過度 衝動','權杖四逆位精簡關鍵詞符合結果頁格式');
 for(const c of tarotCards){
   for(const field of required){
     const v=c[field]; const valid=Array.isArray(v)?v.length>=2:typeof v==='string'&&v.trim().length>0;

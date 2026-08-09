@@ -524,91 +524,138 @@ export function renderReading() {
   app.focus({ preventScroll:true });
 }
 
-const shortClause = (text='') => String(text).split(/[；。]/).map((v)=>v.trim()).find(Boolean) || String(text).trim();
+const clampScore = (value) => Math.max(5, Math.min(95, Math.round(value)));
 
-function fallbackActionForItem(item) {
-  const key = item.keywords?.[0] || '這個重點';
-  if (['advice','guidance'].includes(item.positionId)) return `把建議落地：${shortClause(item.advice)}。今天先完成其中一個最小步驟。`;
-  if (['situation','present'].includes(item.positionId)) return `先確認現況：寫下一件支持「${key}」的事實，再寫下一件可能反駁它的事實，避免只憑感覺下結論。`;
-  if (item.positionId==='obstacle') return `先處理阻礙：${shortClause(item.warning)}。只處理最影響你的那一項。`;
-  if (item.positionId==='past') return '把過去和現在分開：找出一個仍在影響你的舊模式；如果它已不適用，就不要再用它解釋今天。';
-  if (['future','outcome'].includes(item.positionId)) return `把這張牌當成情境測試：如果保持現況，留意「${key}」是否開始出現；不理想就及早調整。`;
-  if (item.positionId==='factor') return `盤點一個與「${key}」有關、你現在真的可以運用的資源或條件，今天把它用在下一步。`;
-  if (item.positionId==='hidden') return `檢查被忽略的部分：看看是否有與「${key}」有關的資訊或感受未被看見，再用事實確認。`;
-  return `${shortClause(item.advice || item.action)}。`;
-}
+const positiveScoreTerms = new Set([
+  '成功','勝利','希望','喜悅','機會','轉機','完成','圓滿','豐盛','連結','穩定','推進','活力','療癒','信任','創造力','創造','成果','自由','勇氣','平衡','協調','修復','交流','成熟','資源','清晰','覺醒','更新','吸引','價值一致'
+]);
+const negativeScoreTerms = new Set([
+  '阻塞','急躁','停滯','衝動','耗竭','焦慮','失控','衝突','失望','匱乏','拖延','迷失','壓迫','失衡','固執','孤立','反覆','延遲','過載','疲憊','猜疑','依賴','困局延長','方向不穩','準備不足'
+]);
+const luckyCardIds = new Set(['major-10','major-17','major-19','major-20','major-21','wands-ace','cups-ace','swords-ace','pentacles-ace']);
 
-function fallbackPlainCard(item) {
-  const key = item.keywords?.[0] || '當下重點';
-  const second = item.keywords?.[1] ? `、${item.keywords[1]}` : '';
+function dashboardScores(result) {
+  const items = result.interpretations || [];
+  if (!items.length) return { success:50, failure:50, good:50, bad:50, luck:50, misfortune:50 };
+
+  let totalWeight = 0;
+  let orientationTotal = 0;
+  let keywordTotal = 0;
+  let luckBonus = 0;
+  let outcomeBias = 0;
+
+  items.forEach((item) => {
+    const weight = Number(item.weight) || 1;
+    const orientation = item.orientation === 'upright' ? 1 : -1;
+    totalWeight += weight;
+    orientationTotal += orientation * weight;
+
+    const terms = (item.keywords || []).slice(0,4);
+    const polarity = terms.reduce((sum, term) => sum + (positiveScoreTerms.has(term) ? 1 : 0) - (negativeScoreTerms.has(term) ? 1 : 0), 0);
+    keywordTotal += (polarity / Math.max(terms.length, 1)) * weight;
+
+    if (luckyCardIds.has(item.cardId)) luckBonus += orientation * .22 * weight;
+    if (['future','outcome','advice','guidance'].includes(item.positionId)) outcomeBias += orientation * .08 * weight;
+  });
+
+  const orientationSignal = orientationTotal / Math.max(totalWeight, 1);
+  const keywordSignal = keywordTotal / Math.max(totalWeight, 1);
+  const luckSignal = luckBonus / Math.max(totalWeight, 1);
+  const outcomeSignal = outcomeBias / Math.max(totalWeight, 1);
+
+  const success = clampScore(50 + orientationSignal * 22 + keywordSignal * 16 + outcomeSignal * 42);
+  const good = clampScore(50 + orientationSignal * 18 + keywordSignal * 24);
+  const luck = clampScore(50 + orientationSignal * 12 + keywordSignal * 12 + luckSignal * 70);
+
   return {
-    headline: `${item.positionName}：重點是「${key}」`,
-    meaning: `在「${item.positionName}」這個位置，先看「${key}${second}」。${shortClause(item.baseMeaning)}。${item.orientation==='upright'?'正位表示這股力量較容易運用，但仍要落到現實行動。':'逆位不等於壞結果，而是提醒這股力量可能受阻或失衡，先校正會更穩。'}`,
-    action: fallbackActionForItem(item),
-    watch: `${shortClause(item.warning)}。`,
+    success, failure: 100 - success,
+    good, bad: 100 - good,
+    luck, misfortune: 100 - luck,
   };
 }
 
-function fallbackPlainOverview(result) {
-  const top = [...result.interpretations].sort((a,b)=>b.weight-a.weight)[0] || result.interpretations[0];
-  const reversed = result.interpretations.filter((i)=>i.orientation==='reversed').length;
-  return {
-    title: top ? `先處理「${top.keywords[0]}」，答案會清楚很多。` : '先把問題拆細，再看下一步。',
-    text: top ? `整個牌陣最值得先看的，是「${top.positionName}」的${top.cardName}${top.orientationLabel}。它把焦點放在「${top.keywords.slice(0,2).join('、')}」。` : result.coreMessage,
-    direction: reversed > result.interpretations.length/2 ? '目前阻力較多，先修正卡點再推進。' : reversed ? '有機會亦有阻力，適合邊前進邊確認現實情況。' : '整體較順，把優勢落實成行動就好。',
-    action: top ? shortClause(top.advice || top.action) : '先做一件你現在可以控制的小事。',
-  };
-}
-
-function resultCard(item, plain) {
-  const p = plain || fallbackPlainCard(item);
-  return `<article class="simple-result-card">
-    <div class="simple-card-visual"><span class="position-tag">${escapeHtml(item.positionName)}</span><img src="${item.image}" alt="${escapeHtml(item.cardName)} ${item.orientationLabel}" class="${item.orientation==='reversed'?'reversed':''}"></div>
-    <div class="simple-card-copy">
-      <div class="simple-card-title"><p>${escapeHtml(item.enName)}</p><h2>${escapeHtml(item.cardName)} <small>${item.orientationLabel}</small></h2><div class="keyword-row">${item.keywords.slice(0,4).map(k=>`<span>${escapeHtml(k)}</span>`).join('')}</div></div>
-      <h3>${escapeHtml(p.headline)}</h3>
-      <div class="plain-reading-row"><span>這張牌在說什麼</span><p>${escapeHtml(p.meaning)}</p></div>
-      <div class="plain-reading-row action"><span>你可以怎樣做</span><p>${escapeHtml(p.action)}</p></div>
-      <div class="plain-reading-row watch"><span>要留意</span><p>${escapeHtml(p.watch)}</p></div>
+function resultCard(item) {
+  return `<article class="keyword-result-card">
+    <div class="keyword-card-visual"><span class="position-tag">${escapeHtml(item.positionName)}</span><img src="${item.image}" alt="${escapeHtml(item.cardName)} ${item.orientationLabel}" class="${item.orientation==='reversed'?'reversed':''}"></div>
+    <div class="keyword-card-copy">
+      <p class="keyword-card-en">${escapeHtml(item.enName)}</p>
+      <h2>${escapeHtml(item.cardName)} <small>${item.orientationLabel}</small></h2>
+      <div class="keyword-only-row">${item.keywords.slice(0,4).map(k=>`<span>${escapeHtml(k)}</span>`).join('')}</div>
     </div>
   </article>`;
+}
+
+function dashboardDial(label, positive, negativeLabel, negative) {
+  const angle = (positive * 1.8).toFixed(1);
+  const needle = (positive * 1.8 - 90).toFixed(1);
+  return `<article class="dashboard-dial" style="--score:${positive};--angle:${angle}deg;--needle:${needle}deg">
+    <div class="dial-face" aria-label="${escapeHtml(label)} ${positive} 分">
+      <div class="dial-arc"></div>
+      <span class="dial-tick t0"></span><span class="dial-tick t25"></span><span class="dial-tick t50"></span><span class="dial-tick t75"></span><span class="dial-tick t100"></span>
+      <i class="dial-needle"></i><b class="dial-hub"></b>
+      <div class="dial-number"><strong>${positive}</strong><small>/ 100</small></div>
+    </div>
+    <div class="dial-pair"><span><b>${escapeHtml(label)}</b>${positive}</span><span><b>${escapeHtml(negativeLabel)}</b>${negative}</span></div>
+  </article>`;
+}
+
+function paidSummary(result, scores) {
+  const items = [...(result.interpretations || [])].sort((a,b)=>(b.weight||1)-(a.weight||1));
+  const top = items[0];
+  const direction = scores.success >= 62 ? '偏向可推進' : scores.success <= 38 ? '阻力偏高' : '好壞參半';
+  const luckTone = scores.luck >= 62 ? '外在時機亦較配合' : scores.luck <= 38 ? '不宜太依賴運氣，較需要靠準備與調整' : '運氣因素屬中性，結果更取決於你之後的選擇';
+  const preview = top
+    ? `今次牌面整體${direction}。最值得先看的，是${top.cardName}${top.orientationLabel}所帶出的「${top.keywords.slice(0,2).join('、')}」；${luckTone}。`
+    : `今次牌面整體${direction}；${luckTone}。`;
+  const full = [
+    result.coreMessage,
+    result.pattern,
+    result.plainOverview?.text,
+    result.plainOverview?.direction,
+  ].filter(Boolean).join(' ');
+  return { preview, full };
 }
 
 export function renderResult(id) {
   const result = (state.lastResult?.id===id ? state.lastResult : null) || getReading(id);
   if (!result) { page('找不到這次占卜', 'RESULT', `<div class="empty"><p>這筆紀錄可能已被刪除，或來自另一個瀏覽器。</p><a class="btn primary" href="#/setup">重新占卜</a></div>`); return; }
   const theme=themes[result.reading.theme]||themes.custom;
-  const plain = result.plainOverview || fallbackPlainOverview(result);
-  const plainCards = result.plainNextSteps?.length ? (result.plainCards || result.interpretations.map(fallbackPlainCard)) : result.interpretations.map(fallbackPlainCard);
-  const simpleAdvice = (result.plainNextSteps?.length ? result.plainNextSteps : plainCards.map((p)=>p.action).filter(Boolean)).slice(0,3);
-  const simpleWarnings = (result.plainWarnings?.length ? result.plainWarnings : plainCards.map((p)=>p.watch).filter(Boolean)).slice(0,3);
+  const scores = dashboardScores(result);
+  const summary = paidSummary(result, scores);
+
   page('你的解讀', 'READING RESULT', `
     <section class="result-intro"><div><div class="reading-meta"><span>${theme.label}</span><span>${escapeHtml(result.reading.subtopic)}</span><span>${escapeHtml(result.spread.name)}</span></div><h2>「${escapeHtml(result.reading.question)}」</h2><p>${fmtDate(result.createdAt)}</p></div><a href="#/setup" class="btn ghost">再次占卜</a></section>
 
-    <section class="plain-overview">
-      <p class="eyebrow">先看這裡 · 30 秒看懂</p>
-      <h2>${escapeHtml(plain.title)}</h2>
-      <p class="plain-lead">${escapeHtml(plain.text)}</p>
-      <div class="plain-overview-grid"><div><small>整體方向</small><p>${escapeHtml(plain.direction)}</p></div><div><small>現在先做</small><p>${escapeHtml(plain.action)}</p></div></div>
+    <section class="keyword-cards-section">
+      <div class="section-heading"><p class="eyebrow">CARD BY CARD</p><h2>逐張看</h2><p>只保留牌名、正逆位與最重要的 4 個關鍵詞。</p></div>
+      <div class="keyword-result-cards">${result.interpretations.map(resultCard).join('')}</div>
     </section>
 
-    <section class="simple-cards-section"><div class="section-heading"><p class="eyebrow">CARD BY CARD</p><h2>逐張看，就會清楚</h2><p>不用背牌義。只要看「這個位置代表甚麼 → 牌在提醒甚麼 → 你可以怎樣做」。</p></div><div class="simple-result-cards">${result.interpretations.map((item,i)=>resultCard(item,plainCards[i])).join('')}</div></section>
-
-    <section class="plain-next-steps">
-      <div><p class="eyebrow">NEXT STEPS</p><h2>接下來，按這個次序做</h2>${simpleAdvice.map((v,i)=>`<div class="plain-step"><b>${i+1}</b><p>${escapeHtml(v)}</p></div>`).join('')}</div>
-      <div><p class="eyebrow">WATCH FOR</p><h2>同時留意</h2>${simpleWarnings.map(v=>`<p class="plain-watch">— ${escapeHtml(v)}</p>`).join('')}</div>
-    </section>
-
-    <details class="advanced-reading">
-      <summary><span>想看更深入的牌義與多牌關係</span><small>進階內容，可選擇性閱讀 ＋</small></summary>
-      <div class="advanced-reading-body">
-        <div class="advanced-note"><h3>整體牌面規則</h3><p>${escapeHtml(result.pattern)}</p></div>
-        ${result.combinations.length?`<div class="combo-list">${result.combinations.slice(0,8).map(c=>`<article><span>${c.type==='special'?'特殊組合':'規則組合'}</span><h3>${escapeHtml(c.title)}</h3><p>${escapeHtml(c.text)}</p></article>`).join('')}</div>`:''}
+    <section class="reading-dashboard">
+      <div class="dashboard-heading"><div><p class="eyebrow">READING DASHBOARD</p><h2>牌面儀錶板</h2></div><p>分數代表這次牌面的相對傾向，不是科學機率或結果保證。</p></div>
+      <div class="dashboard-cluster">
+        ${dashboardDial('成功', scores.success, '不成功', scores.failure)}
+        ${dashboardDial('好事', scores.good, '壞事', scores.bad)}
+        ${dashboardDial('好運', scores.luck, '衰運', scores.misfortune)}
       </div>
-    </details>
+    </section>
+
+    <section class="paid-summary-section">
+      <div class="paid-summary-head"><p class="eyebrow">SUMMARY ANALYSIS</p><h2>摘要分析</h2></div>
+      <div class="paid-summary-card">
+        <p class="summary-preview">${escapeHtml(summary.preview)}</p>
+        <div class="summary-locked" aria-label="完整摘要分析已鎖定">
+          <div class="summary-blurred" aria-hidden="true">
+            <p>${escapeHtml(summary.full || result.pattern || result.coreMessage)}</p>
+            <p>${escapeHtml((result.combinations || []).slice(0,2).map(c=>c.text).join(' ') || '牌與牌之間仍有更多關係可以進一步拆解，包括位置、正逆位比例與組合訊號。')}</p>
+          </div>
+          <div class="summary-lock-overlay"><span>✦</span><strong>完整分析已鎖定</strong><p>日後可接駁收費模式，付款後解除模糊並顯示全文。</p><button type="button" disabled>付費解鎖 · 稍後推出</button></div>
+        </div>
+      </div>
+    </section>
 
     <section class="final-summary simple-final"><p class="eyebrow">REMEMBER</p><h2>把牌當成鏡子，不是判決。</h2><p>牌面指出的是現在較值得留意的方向。真正會改變結果的，仍然是現實資訊、溝通方式，以及你之後的選擇。</p><div class="disclaimer-box">塔羅占卜屬於娛樂及自我反思用途，結果並非科學預測，也不能保證未來一定會按照牌面發展。涉及醫療、法律、投資或重大人生決策時，應以專業意見及實際資訊作判斷。</div></section>
-  `,'result-page simple-result-page');
+  `,'result-page keyword-result-page');
 }
 
 
